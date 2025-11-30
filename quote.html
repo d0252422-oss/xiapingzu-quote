@@ -121,7 +121,7 @@
         </div>
 
         <button id="addItemBtn"
-          class="w-full mt-2 bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl shadow-md active:scale-95 transition disabled:bg-slate-300 disabled:text-slate-600">
+          class="w-full mt-2 bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl shadow-md active:scale-95 transition disabled:bg-slate-300">
           加入本次報價
         </button>
       </section>
@@ -176,6 +176,7 @@
     </footer>
   </div>
 
+  <!-- SCRIPT -->
   <script>
     /* -------------------------------
        1. 你的 Google Sheet CSV
@@ -184,7 +185,13 @@
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?output=csv";
 
     /* -------------------------------
-       2. DOM 參照
+       2. Make Webhook
+    --------------------------------*/
+    const MAKE_WEBHOOK =
+      "https://hook.us2.make.com/rbomljrj7wy2qkhqu3ajeuokqyovltbh";
+
+    /* -------------------------------
+       3. DOM 
     --------------------------------*/
     const loadStatus = document.getElementById("loadStatus");
     const groupSelect = document.getElementById("groupSelect");
@@ -201,7 +208,6 @@
     const totalDisplay = document.getElementById("totalDisplay");
     const footerTotal = document.getElementById("footerTotal");
     const sendBtn = document.getElementById("sendBtn");
-
     const customerNameInput = document.getElementById("customerName");
     const customerPhoneInput = document.getElementById("customerPhone");
 
@@ -210,7 +216,7 @@
     let ufItem = null;
 
     /* -------------------------------
-       3. CSV 解析（支援含逗號與引號）
+       4. CSV parser（支援逗號與引號）
     --------------------------------*/
     function parseCSV(text) {
       const rows = [];
@@ -244,12 +250,11 @@
 
       if (current || row.length) row.push(current);
       if (row.length) rows.push(row);
-
       return rows;
     }
 
     /* -------------------------------
-       4. 商品群組推測
+       5. 商品群組推測
     --------------------------------*/
     function inferGroup(code) {
       if (/^[1-9]/.test(code)) return "櫃體";
@@ -260,7 +265,7 @@
     }
 
     /* -------------------------------
-       5. 從 Google Sheet 載入
+       6. 載入 Google Sheet
     --------------------------------*/
     async function loadPriceList() {
       try {
@@ -288,7 +293,6 @@
         loadStatus.textContent = `已載入 ${allItems.length} 筆資料`;
         buildItemOptions();
         updateLinePreview();
-
       } catch (err) {
         console.error(err);
         loadStatus.textContent = "📌 無法讀取 Google Sheet，請檢查是否公開";
@@ -297,7 +301,7 @@
     }
 
     /* -------------------------------
-       6. 依群組刷新選項
+       7. 刷新項目選單
     --------------------------------*/
     function buildItemOptions() {
       const selectedGroup = groupSelect.value;
@@ -350,4 +354,184 @@
       }
 
       const amount = Math.round(item.price * qty);
-      linePreview.textContent = `$${item.price
+      linePreview.textContent = `$${item.price} × ${qty} = $${amount.toLocaleString()}`;
+    }
+
+    /* -------------------------------
+       8. 報價清單
+    --------------------------------*/
+    function renderQuoteList() {
+      if (!quoteItems.length) {
+        quoteList.innerHTML = `<p class="text-xs text-slate-400">尚未加入任何項目。</p>`;
+        subtotalDisplay.textContent = "—";
+        totalDisplay.textContent = "—";
+        footerTotal.textContent = "—";
+        ufAmountDisplay.textContent = "+ $0";
+        sendBtn.disabled = true;
+        return;
+      }
+
+      quoteList.innerHTML = quoteItems.map((it, i) => `
+        <div class="flex items-start justify-between gap-2 border rounded-xl px-3 py-2">
+          <div class="text-xs">
+            <p class="font-semibold text-slate-800">[${it.code}] ${it.name}</p>
+            <p class="text-[11px] text-slate-500 mt-[2px]">
+              數量：${it.qty} ${it.unit}｜小計 $${it.amount.toLocaleString()}
+            </p>
+          </div>
+          <button data-idx="${i}" class="text-[11px] text-red-500 hover:underline remove-item">刪除</button>
+          <p class="text-sm font-semibold text-slate-900">$${it.amount.toLocaleString()}</p>
+        </div>
+      `).join("");
+
+      document.querySelectorAll(".remove-item").forEach(btn => {
+        btn.addEventListener("click", e => {
+          const i = parseInt(e.target.dataset.idx, 10);
+          quoteItems.splice(i, 1);
+          renderQuoteList();
+          recalcTotal();
+        });
+      });
+
+      sendBtn.disabled = false;
+      recalcTotal();
+    }
+
+    /* -------------------------------
+       9. 計算總價
+    --------------------------------*/
+    function recalcTotal() {
+      const subtotal = quoteItems.reduce((sum, it) => sum + it.amount, 0);
+      subtotalDisplay.textContent = `$${subtotal.toLocaleString()}`;
+
+      let ufAmount = 0;
+      if (ufCheckbox.checked && ufItem) {
+        ufAmount = ufItem.price;
+        ufAmountDisplay.textContent = `+ $${ufAmount.toLocaleString()}（UF）`;
+      } else {
+        ufAmountDisplay.textContent = "+ $0";
+      }
+
+      const total = subtotal + ufAmount;
+
+      totalDisplay.textContent = `$${total.toLocaleString()}`;
+      footerTotal.textContent = `$${total.toLocaleString()}`;
+    }
+
+    /* -------------------------------
+       10. 建立報價文字（含 UF）
+    --------------------------------*/
+    function buildQuoteText() {
+      const name = customerNameInput.value.trim();
+      const phone = customerPhoneInput.value.trim();
+
+      const subtotal = quoteItems.reduce((sum, it) => sum + it.amount, 0);
+      const ufAdd = (ufCheckbox.checked && ufItem) ? ufItem.price : 0;
+      const total = subtotal + ufAdd;
+
+      const lines = [];
+      lines.push("【蝦拼組 系統櫃報價單】");
+      if (name) lines.push(`客戶：${name}`);
+      if (phone) lines.push(`電話：${phone}`);
+      if (name || phone) lines.push("");
+
+      quoteItems.forEach((it, i) => {
+        lines.push(`${i + 1}. [${it.code}] ${it.name}`);
+        lines.push(`   數量：${it.qty} ${it.unit}｜單價 $${it.price}｜小計 $${it.amount.toLocaleString()}`);
+      });
+
+      if (ufAdd > 0) {
+        lines.push("");
+        lines.push(`運費補貼：${ufItem.name}（${ufItem.code}） $${ufAdd.toLocaleString()}`);
+      }
+
+      lines.push("");
+      lines.push(`小計：$${subtotal.toLocaleString()}`);
+      lines.push(`總價（含運費項目）：$${total.toLocaleString()}`);
+      lines.push("");
+      lines.push("※ 實際金額以現場丈量、設計圖與合約為準。");
+
+      return lines.join("\n");
+    }
+
+    /* -------------------------------
+       11. 傳送到 Make Webhook
+    --------------------------------*/
+    async function sendToMake() {
+      const payload = {
+        customerName: customerNameInput.value.trim(),
+        customerPhone: customerPhoneInput.value.trim(),
+        items: quoteItems,
+        subtotal: quoteItems.reduce((s, it) => s + it.amount, 0),
+        ufAdd: ufCheckbox.checked && ufItem ? ufItem.price : 0,
+        total: quoteItems.reduce((s, it) => s + it.amount, 0) + (ufCheckbox.checked && ufItem ? ufItem.price : 0),
+        text: buildQuoteText(),
+      };
+
+      try {
+        await fetch(MAKE_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        alert("已成功送出報價到 Make！");
+      } catch (err) {
+        alert("送出失敗，請稍後再試");
+      }
+    }
+
+    /* -------------------------------
+       12. 初始化 LIFF
+    --------------------------------*/
+    async function initLiff() {
+      try {
+        await liff.init({ liffId: "2008590887-zkqDbWqb" });
+      } catch (err) {
+        console.warn("LIFF 初始化失敗，在瀏覽器模式可忽略");
+      }
+    }
+
+    /* -------------------------------
+       13. 事件綁定
+    --------------------------------*/
+    function init() {
+      loadPriceList();
+      initLiff();
+
+      groupSelect.addEventListener("change", buildItemOptions);
+      itemSelect.addEventListener("change", () => {
+        updateUnitHint();
+        updateLinePreview();
+      });
+
+      qtyInput.addEventListener("input", updateLinePreview);
+
+      addItemBtn.addEventListener("click", () => {
+        const item = getSelectedItem();
+        const qty = parseFloat(qtyInput.value || "0");
+
+        if (!item || qty <= 0) {
+          alert("請選擇商品並輸入有效數量");
+          return;
+        }
+
+        quoteItems.push({
+          ...item,
+          qty,
+          amount: Math.round(item.price * qty)
+        });
+
+        qtyInput.value = "";
+        updateLinePreview();
+        renderQuoteList();
+      });
+
+      ufCheckbox.addEventListener("change", recalcTotal);
+      sendBtn.addEventListener("click", sendToMake);
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
