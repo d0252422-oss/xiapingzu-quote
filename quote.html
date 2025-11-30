@@ -96,4 +96,388 @@
 
         <div class="grid grid-cols-2 gap-3 text-sm mt-2">
           <div>
-            <label class="block text-xs text-slate-500 mb-1">數量<
+            <label class="block text-xs text-slate-500 mb-1">數量</label>
+            <input id="qtyInput" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="例如：3、4.5" />
+          </div>
+
+          <div class="flex flex-col justify-between">
+            <span class="block text-xs text-slate-500 mb-1">單價 × 數量</span>
+            <p id="linePreview" class="text-sm font-medium text-slate-800">—</p>
+          </div>
+        </div>
+
+        <button id="addItemBtn"
+          class="w-full mt-2 bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl shadow-md active:scale-95 transition">
+          加入本次報價
+        </button>
+      </section>
+
+      <!-- 報價清單 -->
+      <section class="bg-white rounded-2xl elevated p-4 space-y-3 mb-2">
+        <h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">3</span>
+          報價項目清單
+        </h2>
+
+        <div id="quoteList" class="space-y-2 text-sm">
+          <p class="text-xs text-slate-400">尚未加入任何項目。</p>
+        </div>
+
+        <div class="border-t pt-2 mt-2 text-sm">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-600 font-medium">小計</span>
+            <span id="subtotalDisplay" class="font-semibold text-slate-800">—</span>
+          </div>
+
+          <div class="flex items-center justify-between mt-2 text-xs">
+            <label class="flex items-center gap-1 text-slate-600">
+              <input id="ufCheckbox" type="checkbox" class="h-3 w-3 rounded border-slate-400" />
+              <span>加上「未滿五萬運費工資補貼 (UF)」</span>
+            </label>
+            <span id="ufAmountDisplay" class="text-slate-700">+ $0</span>
+          </div>
+
+          <div class="flex justify-between items-center mt-2 border-t pt-2">
+            <span class="text-slate-700 font-semibold">總價（含運費項目）</span>
+            <span id="totalDisplay" class="text-lg font-bold text-emerald-700">—</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="fixed bottom-0 left-0 right-0 bg-[#022c22] border-t border-emerald-900/40">
+      <div class="max-w-md mx-auto flex items-center justify-between px-4 py-3 gap-3">
+        <div class="text-xs text-emerald-100">
+          <p class="font-semibold text-emerald-50">報價總額</p>
+          <p id="footerTotal" class="text-lg font-bold text-emerald-300">—</p>
+        </div>
+        <button id="sendBtn"
+          class="flex-1 bg-emerald-500 text-emerald-950 text-sm font-semibold py-2 rounded-xl shadow-lg active:scale-95 transition disabled:bg-slate-400 disabled:text-slate-800">
+          傳送報價給 LINE 用戶
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    /**********************
+     * Google Sheet CSV URL
+     **********************/
+    const SHEET_CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?output=csv";
+
+    /**********************
+     * Make Webhook URL
+     **********************/
+    const MAKE_WEBHOOK =
+      "https://hook.us2.make.com/rbomljrj7wy2qkhqu3ajeuokqyovltbh";
+
+    /**********************
+     * 取得 HTML 元件
+     **********************/
+    const loadStatus = document.getElementById("loadStatus");
+    const groupSelect = document.getElementById("groupSelect");
+    const itemSelect = document.getElementById("itemSelect");
+    const unitHint = document.getElementById("unitHint");
+    const itemNote = document.getElementById("itemNote");
+    const qtyInput = document.getElementById("qtyInput");
+    const linePreview = document.getElementById("linePreview");
+    const addItemBtn = document.getElementById("addItemBtn");
+    const quoteList = document.getElementById("quoteList");
+    const subtotalDisplay = document.getElementById("subtotalDisplay");
+    const ufCheckbox = document.getElementById("ufCheckbox");
+    const ufAmountDisplay = document.getElementById("ufAmountDisplay");
+    const totalDisplay = document.getElementById("totalDisplay");
+    const footerTotal = document.getElementById("footerTotal");
+    const sendBtn = document.getElementById("sendBtn");
+    const customerNameInput = document.getElementById("customerName");
+    const customerPhoneInput = document.getElementById("customerPhone");
+
+    let allItems = [];
+    let quoteItems = [];
+    let ufItem = null;
+
+    /**********************
+     * 1. 從 Sheet 載入價目表
+     **********************/
+    function inferGroup(code) {
+      if (/^[1-9]/.test(code)) return "櫃體";
+      if (/^D/.test(code)) return "抽屜";
+      if (/^(FA|T)/.test(code)) return "板材/封板";
+      if (/^(TJ|UF|Z)/.test(code)) return "五金/加工";
+      return "其他";
+    }
+
+    async function loadPriceList() {
+      try {
+        const res = await fetch(SHEET_CSV_URL);
+        const text = await res.text();
+
+        const lines = text.trim().split(/\r?\n/);
+        const header = lines[0].split(",");
+        const idxCode = header.indexOf("編碼");
+        const idxName = header.indexOf("名稱");
+        const idxUnit = header.indexOf("單位");
+        const idxPrice = header.indexOf("單價");
+
+        allItems = lines
+          .slice(1)
+          .map((line) => {
+            const cols = line.split(",");
+            const code = cols[idxCode] || "";
+            const name = cols[idxName] || "";
+            const unit = cols[idxUnit] || "";
+            const price = parseFloat(cols[idxPrice] || "0");
+            const group = inferGroup(code);
+            return { code, name, unit, price, group };
+          })
+          .filter((it) => it.code && !isNaN(it.price));
+
+        ufItem = allItems.find((it) => it.code === "UF") || null;
+
+        loadStatus.textContent = `已載入 ${allItems.length} 筆價目。`;
+
+        buildItemOptions();
+        updateLinePreview();
+      } catch (err) {
+        console.error(err);
+        loadStatus.textContent =
+          "載入失敗，請確認 Google Sheet 已設為公開。";
+        itemSelect.innerHTML = '<option value="">載入失敗</option>';
+      }
+    }
+
+    function buildItemOptions() {
+      const selectedGroup = groupSelect.value;
+      const filtered =
+        selectedGroup === "ALL"
+          ? allItems
+          : allItems.filter((it) => it.group === selectedGroup);
+
+      if (!filtered.length) {
+        itemSelect.innerHTML = '<option value="">此類別無項目</option>';
+        addItemBtn.disabled = true;
+        return;
+      }
+
+      itemSelect.innerHTML = filtered
+        .map(
+          (it) =>
+            `<option value="${it.code}">[${it.code}] ${it.name}｜${it.unit} $${it.price}</option>`
+        )
+        .join("");
+
+      addItemBtn.disabled = false;
+      updateUnitHint();
+      updateLinePreview();
+    }
+
+    function getSelectedItem() {
+      const code = itemSelect.value;
+      return allItems.find((it) => it.code === code) || null;
+    }
+
+    function updateUnitHint() {
+      const item = getSelectedItem();
+      if (!item) {
+        unitHint.textContent = "先選商品，再輸入數量";
+        itemNote.textContent = "";
+        return;
+      }
+
+      const map = {
+        櫃體: "以「尺」計價",
+        抽屜: "以「組」計價",
+        "板材/封板": "以「才」計價",
+        "五金/加工": "依單位計價",
+      };
+
+      unitHint.textContent = map[item.group] || "依單位計價";
+      itemNote.textContent = `單位：${item.unit}｜單價：$${item.price}`;
+    }
+
+    function updateLinePreview() {
+      const item = getSelectedItem();
+      const qty = parseFloat(qtyInput.value || "0");
+
+      if (!item || !qty || qty <= 0) {
+        linePreview.textContent = "—";
+        return;
+      }
+
+      const amount = Math.round(item.price * qty);
+      linePreview.textContent = `$${item.price} × ${qty} = $${amount.toLocaleString()}`;
+    }
+
+    /**********************
+     * 2. 報價項目清單管理
+     **********************/
+    function renderQuoteList() {
+      if (!quoteItems.length) {
+        quoteList.innerHTML =
+          '<p class="text-xs text-slate-400">尚未加入任何項目。</p>';
+        subtotalDisplay.textContent = "—";
+        totalDisplay.textContent = "—";
+        footerTotal.textContent = "—";
+        ufAmountDisplay.textContent = "+ $0";
+        sendBtn.disabled = true;
+        return;
+      }
+
+      quoteList.innerHTML = quoteItems
+        .map(
+          (it, i) => `
+        <div class="flex items-start justify-between gap-2 border rounded-xl px-3 py-2">
+          <div class="text-xs">
+            <p class="font-semibold text-slate-800">[${it.code}] ${it.name}</p>
+            <p class="text-[11px] text-slate-500 mt-[2px]">數量：${it.qty} ${it.unit}｜小計 $${it.amount.toLocaleString()}</p>
+          </div>
+          <button data-idx="${i}" class="text-[11px] text-red-500 hover:underline remove-item">刪除</button>
+          <p class="text-sm font-semibold text-slate-900">$${it.amount.toLocaleString()}</p>
+        </div>`
+        )
+        .join("");
+
+      // 綁定刪除
+      document.querySelectorAll(".remove-item").forEach((btn) =>
+        btn.addEventListener("click", (e) => {
+          const i = parseInt(e.target.dataset.idx, 10);
+          quoteItems.splice(i, 1);
+          renderQuoteList();
+          recalcTotal();
+        })
+      );
+
+      sendBtn.disabled = false;
+      recalcTotal();
+    }
+
+    function recalcTotal() {
+      const subtotal = quoteItems.reduce((sum, it) => sum + it.amount, 0);
+      subtotalDisplay.textContent = `$${subtotal.toLocaleString()}`;
+
+      let ufAmount = ufCheckbox.checked && ufItem ? ufItem.price : 0;
+      ufAmountDisplay.textContent = ufAmount
+        ? `+ $${ufAmount.toLocaleString()}`
+        : "+ $0";
+
+      const total = subtotal + ufAmount;
+      totalDisplay.textContent = `$${total.toLocaleString()}`;
+      footerTotal.textContent = `$${total.toLocaleString()}`;
+    }
+
+    /**********************
+     * 3. 建立報價文字
+     **********************/
+    function buildQuoteText() {
+      const name = customerNameInput.value.trim();
+      const phone = customerPhoneInput.value.trim();
+
+      const subtotal = quoteItems.reduce((s, it) => s + it.amount, 0);
+      const ufAdd = ufCheckbox.checked && ufItem ? ufItem.price : 0;
+      const total = subtotal + ufAdd;
+
+      const head = ["【蝦拼組 系統櫃報價單】"];
+      if (name) head.push(`客戶：${name}`);
+      if (phone) head.push(`電話：${phone}`);
+      if (head.length > 1) head.push("");
+
+      const items = quoteItems.map(
+        (it, i) =>
+          `${i + 1}. [${it.code}] ${it.name}\n   數量：${it.qty} ${it.unit}｜小計：$${it.amount.toLocaleString()}`
+      );
+
+      const ufLine =
+        ufAdd > 0
+          ? ["", `運費／補貼：${ufItem.name}（${ufItem.code}） $${ufAdd.toLocaleString()}`]
+          : [];
+
+      const totals = [
+        "",
+        "小計：" + subtotal.toLocaleString(),
+        "總價（含運費項目）：" + total.toLocaleString(),
+        "",
+        "※ 實際金額以現場丈量、設計圖與合約為準。",
+      ];
+
+      return [...head, ...items, ...ufLine, ...totals].join("\n");
+    }
+
+    /**********************
+     * 4. LIFF 初始化
+     **********************/
+    async function initLiff() {
+      await liff.init({ liffId: "2008590887-zkqDbWqb" });
+    }
+
+    /**********************
+     * 5. 送出報價 → Make Webhook → LINE 推播給使用者本人
+     **********************/
+    async function sendToLine() {
+      try {
+        if (!liff.isInClient()) {
+          alert("請在 LINE App 中開啟後傳送");
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        const userId = profile.userId;
+        const text = buildQuoteText();
+
+        await fetch(MAKE_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: userId,
+            message: text,
+          }),
+        });
+
+        alert("已送出報價給 LINE 用戶！");
+        liff.closeWindow();
+      } catch (err) {
+        console.error(err);
+        alert("傳送失敗，請稍後再試");
+      }
+    }
+
+    /**********************
+     * 6. 初始化事件
+     **********************/
+    function init() {
+      loadPriceList();
+      initLiff();
+
+      groupSelect.addEventListener("change", buildItemOptions);
+      itemSelect.addEventListener("change", () => {
+        updateUnitHint();
+        updateLinePreview();
+      });
+      qtyInput.addEventListener("input", updateLinePreview);
+
+      addItemBtn.addEventListener("click", () => {
+        const item = getSelectedItem();
+        const qty = parseFloat(qtyInput.value || "0");
+        if (!item || !qty || qty <= 0) {
+          alert("請選商品並輸入數量");
+          return;
+        }
+
+        const amount = Math.round(item.price * qty);
+        quoteItems.push({ ...item, qty, amount });
+
+        qtyInput.value = "";
+        updateLinePreview();
+        renderQuoteList();
+      });
+
+      ufCheckbox.addEventListener("change", recalcTotal);
+      sendBtn.addEventListener("click", sendToLine);
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
