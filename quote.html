@@ -42,22 +42,22 @@
     <section class="bg-white rounded-2xl elevated p-4 space-y-3">
       <h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
         <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">1</span>
-        客戶資訊（可不填）
+        客戶資訊（必填）
       </h2>
 
       <div class="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <label class="block text-xs text-slate-500 mb-1">客戶姓名</label>
-          <input id="customerName" type="text"
+          <label class="block text-xs text-slate-500 mb-1">客戶姓名（必填）</label>
+          <input id="customerName" type="text" required
             class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-emerald-300"
             placeholder="例如：王設計" />
         </div>
 
         <div>
-          <label class="block text-xs text-slate-500 mb-1">聯絡電話</label>
-          <input id="customerPhone" type="tel"
+          <label class="block text-xs text-slate-500 mb-1">聯絡電話（必填）</label>
+          <input id="customerPhone" type="tel" required
             class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-emerald-300"
-            placeholder="可不填" />
+            placeholder="請輸入電話" />
         </div>
       </div>
     </section>
@@ -142,11 +142,9 @@
           <span id="subtotalDisplay" class="font-semibold text-slate-800">—</span>
         </div>
 
-        <!-- 固定顯示 UF（自動加價，不用 checkbox） -->
+        <!-- UF（自動 +6000） -->
         <div class="flex items-center justify-between mt-2 text-xs">
-          <label class="flex items-center gap-1 text-slate-600">
-            <span>未滿五萬運費工資補貼 +$6,000</span>
-          </label>
+          <span class="text-slate-600">未滿五萬運費工資補貼</span>
           <span id="ufAmountDisplay" class="text-slate-700">+ $0</span>
         </div>
 
@@ -176,20 +174,23 @@
 </div>
 
 <script>
-/* -----------------------------  
-   4 個 Google Sheet CSV 來源
-------------------------------*/
-const URL_CABINETS  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
-const URL_DRAWERS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv";
-const URL_BOARDS    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv";
-const URL_HARDWARES = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv";
 
-/* DOM */
+/* 四個 Sheet 的 CSV */
+const URL_CABINETS =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
+const URL_DRAWERS =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv";
+const URL_BOARDS =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv";
+const URL_HARDWARES =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv";
+
+
 const loadStatus = document.getElementById("loadStatus");
 const groupSelect = document.getElementById("groupSelect");
 const itemSelect = document.getElementById("itemSelect");
-const unitHint = document.getElementById("unitHint");
 const itemNote = document.getElementById("itemNote");
+const unitHint = document.getElementById("unitHint");
 const qtyInput = document.getElementById("qtyInput");
 const linePreview = document.getElementById("linePreview");
 const addItemBtn = document.getElementById("addItemBtn");
@@ -199,124 +200,97 @@ const ufAmountDisplay = document.getElementById("ufAmountDisplay");
 const totalDisplay = document.getElementById("totalDisplay");
 const footerTotal = document.getElementById("footerTotal");
 const sendBtn = document.getElementById("sendBtn");
+
 const customerNameInput = document.getElementById("customerName");
 const customerPhoneInput = document.getElementById("customerPhone");
 
 let allItems = [];
 let quoteItems = [];
 
-/* ------------------------------------
-   CSV Parser（支援含引號與逗號）
--------------------------------------*/
+/* CSV Parser */
 function parseCSV(text) {
   const rows = [];
-  let current = "";
+  let cur = "";
   let row = [];
   let inside = false;
 
   for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    const next = text[i + 1];
+    const c = text[i], next = text[i + 1];
 
     if (c === '"' && inside && next === '"') {
-      current += '"';
-      i++;
-      continue;
+      cur += '"'; i++; continue;
     }
-    if (c === '"') {
-      inside = !inside;
-      continue;
-    }
-    if (c === "," && !inside) {
-      row.push(current);
-      current = "";
-      continue;
-    }
+    if (c === '"') { inside = !inside; continue; }
+    if (c === "," && !inside) { row.push(cur); cur = ""; continue; }
     if ((c === "\n" || c === "\r") && !inside) {
-      if (current || row.length) {
-        row.push(current);
-        rows.push(row);
-        row = [];
-        current = "";
+      if (cur || row.length) {
+        row.push(cur); rows.push(row); row = []; cur = "";
       }
       continue;
     }
-    current += c;
+    cur += c;
   }
-  if (current || row.length) {
-    row.push(current);
-    rows.push(row);
-  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
   return rows;
 }
 
-/* --------------------------
-   群組分類
----------------------------*/
-function inferGroup(code) {
-  if (/^[1-9]/.test(code)) return "櫃體";
-  if (/^D/.test(code))    return "抽屜";
-  if (/^(FA|T)/.test(code)) return "板材/封板";
-  if (/^(TJ|UF|Z)/.test(code)) return "五金/加工";
+function inferGroup(sheetName) {
+  if (sheetName === "cabinets") return "櫃體";
+  if (sheetName === "drawers") return "抽屜";
+  if (sheetName === "boards") return "板材/封板";
+  if (sheetName === "hardwares") return "五金/加工";
   return "其他";
 }
 
-/* --------------------------
-   讀取四個 Sheet
----------------------------*/
-async function loadOne(url) {
-  const res = await fetch(url + "&t=" + Math.random());
-  return parseCSV(await res.text());
-}
-
-async function loadAllSheets() {
+/* 載入 4 Sheets */
+async function loadPriceList() {
   try {
-    const [cab, dra, brd, hard] = await Promise.all([
-      loadOne(URL_CABINETS),
-      loadOne(URL_DRAWERS),
-      loadOne(URL_BOARDS),
-      loadOne(URL_HARDWARES)
-    ]);
-
-    allItems = [
-      ...rowsToItems(cab),
-      ...rowsToItems(dra),
-      ...rowsToItems(brd),
-      ...rowsToItems(hard)
+    const urls = [
+      { url: URL_CABINETS, group: "cabinets" },
+      { url: URL_DRAWERS, group: "drawers" },
+      { url: URL_BOARDS, group: "boards" },
+      { url: URL_HARDWARES, group: "hardwares" }
     ];
+
+    let merged = [];
+
+    for (const u of urls) {
+      const res = await fetch(u.url + "&rand=" + Math.random());
+      const text = await res.text();
+      const rows = parseCSV(text);
+
+      const header = rows[0];
+      const idxCode = header.indexOf("編碼");
+      const idxName = header.indexOf("名稱");
+      const idxUnit = header.indexOf("單位");
+      const idxPrice = header.indexOf("單價");
+
+      const part = rows.slice(1)
+        .map(r => ({
+          code: r[idxCode],
+          name: r[idxName],
+          unit: r[idxUnit],
+          price: parseFloat(r[idxPrice] || 0),
+          group: inferGroup(u.group)
+        }))
+        .filter(x => x.code && !isNaN(x.price));
+
+      merged = merged.concat(part);
+    }
+
+    allItems = merged;
 
     loadStatus.textContent = `已載入 ${allItems.length} 筆資料`;
     buildItemOptions();
+    updateLinePreview();
 
   } catch (e) {
     console.error(e);
-    loadStatus.textContent = "⚠️ Google Sheet 資料讀取失敗";
+    loadStatus.textContent = "⚠️ Google Sheet 無法存取";
   }
 }
 
-function rowsToItems(rows) {
-  if (!rows || !rows.length) return [];
-
-  const header = rows[0];
-  const idxCode  = header.indexOf("編碼");
-  const idxName  = header.indexOf("名稱");
-  const idxUnit  = header.indexOf("單位");
-  const idxPrice = header.indexOf("單價");
-
-  return rows.slice(1)
-    .map(r => ({
-      code: r[idxCode],
-      name: r[idxName],
-      unit: r[idxUnit],
-      price: parseFloat(r[idxPrice] || 0),
-      group: inferGroup(r[idxCode])
-    }))
-    .filter(x => x.code && !isNaN(x.price));
-}
-
-/* --------------------------
-   下拉選單刷新
----------------------------*/
+/* 下拉項目 */
 function buildItemOptions() {
   const g = groupSelect.value;
   const items = g === "ALL" ? allItems : allItems.filter(x => x.group === g);
@@ -326,16 +300,13 @@ function buildItemOptions() {
     return;
   }
 
-  itemSelect.innerHTML = items
-    .map(x => `<option value="${x.code}">[${x.code}] ${x.name}｜${x.unit} $${x.price}</option>`)
-    .join("");
+  itemSelect.innerHTML = items.map(x =>
+    `<option value="${x.code}">[${x.code}] ${x.name}｜${x.unit} $${x.price}</option>`
+  ).join("");
 
   updateUnitHint();
 }
 
-/* --------------------------
-   顯示提示
----------------------------*/
 function getSelectedItem() {
   return allItems.find(x => x.code === itemSelect.value) || null;
 }
@@ -355,34 +326,27 @@ function updateUnitHint() {
     "五金/加工": "依單位計價"
   };
 
-  unitHint.textContent = map[item.group] || "依單位計價";
+  unitHint.textContent = map[item.group] || "";
   itemNote.textContent = `單位：${item.unit}｜單價：$${item.price}`;
 }
 
-/* --------------------------
-   單價 × 數量
----------------------------*/
+/* 單價×數量 */
 function updateLinePreview() {
   const item = getSelectedItem();
   const qty = parseFloat(qtyInput.value || "0");
-
   if (!item || qty <= 0) {
     linePreview.textContent = "—";
     return;
   }
 
   const amount = Math.round(item.price * qty);
-  linePreview.textContent =
-    `$${item.price} × ${qty} = $${amount.toLocaleString()}`;
+  linePreview.textContent = `$${item.price} × ${qty} = $${amount.toLocaleString()}`;
 }
 
-/* --------------------------
-   報價清單
----------------------------*/
+/* 報價清單顯示 */
 function renderQuoteList() {
   if (!quoteItems.length) {
-    quoteList.innerHTML =
-      `<p class="text-xs text-slate-400">尚未加入任何項目。</p>`;
+    quoteList.innerHTML = `<p class="text-xs text-slate-400">尚未加入任何項目。</p>`;
     subtotalDisplay.textContent = "—";
     totalDisplay.textContent = "—";
     footerTotal.textContent = "—";
@@ -394,7 +358,9 @@ function renderQuoteList() {
     <div class="flex justify-between items-start border rounded-xl px-3 py-2">
       <div class="text-xs">
         <p class="font-semibold text-slate-800">[${it.code}] ${it.name}</p>
-        <p class="text-[11px] text-slate-500">數量：${it.qty} ${it.unit}｜小計 $${it.amount.toLocaleString()}</p>
+        <p class="text-[11px] text-slate-500">
+          數量：${it.qty} ${it.unit}｜小計 $${it.amount.toLocaleString()}
+        </p>
       </div>
       <button data-i="${i}" class="text-red-500 text-[11px] removeBtn">刪除</button>
     </div>
@@ -403,7 +369,7 @@ function renderQuoteList() {
   document.querySelectorAll(".removeBtn").forEach(btn => {
     btn.onclick = () => {
       const idx = btn.dataset.i;
-      quoteItems.splice(parseInt(idx), 1);
+      quoteItems.splice(idx, 1);
       renderQuoteList();
       recalcTotals();
     };
@@ -412,65 +378,72 @@ function renderQuoteList() {
   recalcTotals();
 }
 
-/* --------------------------
-   計算總價（含 UF 自動條件）
----------------------------*/
+/* 計算總價 — UF 自動 +6000 */
 function recalcTotals() {
   const subtotal = quoteItems.reduce((s, x) => s + x.amount, 0);
   subtotalDisplay.textContent = `$${subtotal.toLocaleString()}`;
 
-  let uf = subtotal < 50000 ? 6000 : 0;
-  ufAmountDisplay.textContent = `+ $${uf.toLocaleString()}`;
+  let ufFee = 0;
+  if (subtotal > 0 && subtotal < 50000) {
+    ufFee = 6000;  // ← **你要求的 +6000**
+  }
 
-  const total = subtotal + uf;
+  ufAmountDisplay.textContent = `+ $${ufFee.toLocaleString()}`;
+
+  const total = subtotal + ufFee;
   totalDisplay.textContent = `$${total.toLocaleString()}`;
   footerTotal.textContent = `$${total.toLocaleString()}`;
 }
 
-/* --------------------------
-   報價文字
----------------------------*/
+/* 建立傳送文字 */
 function buildQuoteText() {
   const name = customerNameInput.value.trim();
   const phone = customerPhoneInput.value.trim();
 
-  const subtotal = quoteItems.reduce((s, x) => s + x.amount, 0);
-  const uf = subtotal < 50000 ? 6000 : 0;
-  const total = subtotal + uf;
+  const subtotal = quoteItems.reduce((s,x)=>s+x.amount,0);
+  const ufFee = subtotal < 50000 ? 6000 : 0;
+  const total = subtotal + ufFee;
 
-  const head = ["【蝦拼組 系統櫃報價單】"];
-  if (name) head.push(`客戶：${name}`);
-  if (phone) head.push(`電話：${phone}`);
-  if (head.length > 1) head.push("");
+  const head = [
+    "【蝦拼組 系統櫃報價單】",
+    `客戶：${name}`,
+    `電話：${phone}`,
+    ""
+  ];
 
-  const body = quoteItems.map((it, i) =>
-    `${i + 1}. [${it.code}] ${it.name}\n   數量：${it.qty} ${it.unit}｜小計：$${it.amount.toLocaleString()}`
+  const list = quoteItems.map((it,i)=>
+    `${i+1}. [${it.code}] ${it.name}
+    數量：${it.qty} ${it.unit}｜小計：$${it.amount.toLocaleString()}`
   );
 
   const tail = [
     "",
-    `未滿五萬運費工資補貼：$${uf.toLocaleString()}`,
     `小計：$${subtotal.toLocaleString()}`,
+    `未滿五萬運費工資補貼：$${ufFee.toLocaleString()}`,
     `總價：$${total.toLocaleString()}`,
     "",
-    "※ 實際金額以丈量現場與合約為準。"
+    "※ 實際金額以現場丈量與合約為準。"
   ];
 
-  return [...head, ...body, ...tail].join("\n");
+  return [...head,...list,...tail].join("\n");
 }
 
-/* --------------------------
-   LIFF
----------------------------*/
+/* LIFF */
 async function initLiff() {
   try {
     await liff.init({ liffId: "2008590887-zkqDbWqb" });
-  } catch (e) {
-    console.warn("LIFF 初始化失敗，可忽略", e);
-  }
+  } catch (e) {}
 }
 
 async function sendToLine() {
+  const name = customerNameInput.value.trim();
+  const phone = customerPhoneInput.value.trim();
+
+  if (!name || !phone) {
+    alert("⚠️ 客戶姓名與聯絡電話為必填");
+    return;
+  }
+
   const text = buildQuoteText();
 
   if (liff.isInClient()) {
@@ -482,22 +455,17 @@ async function sendToLine() {
       alert("傳送失敗");
     }
   } else {
-    alert("目前不在 LINE App 中，以下是預覽：\n\n" + text);
+    alert("目前不在 LINE App，以下為內容預覽：\n\n" + text);
   }
 }
 
-/* --------------------------
-   INIT
----------------------------*/
+/* INIT */
 function init() {
-  loadAllSheets();
+  loadPriceList();
   initLiff();
 
   groupSelect.onchange = buildItemOptions;
-  itemSelect.onchange = () => {
-    updateUnitHint();
-    updateLinePreview();
-  };
+  itemSelect.onchange = () => { updateUnitHint(); updateLinePreview(); };
   qtyInput.oninput = updateLinePreview;
 
   addItemBtn.onclick = () => {
@@ -507,6 +475,7 @@ function init() {
       alert("請選擇商品並輸入數量");
       return;
     }
+
     const amount = Math.round(item.price * qty);
     quoteItems.push({ ...item, qty, amount });
     qtyInput.value = "";
@@ -518,6 +487,7 @@ function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
 </script>
 
 </body>
