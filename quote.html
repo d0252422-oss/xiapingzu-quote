@@ -1,127 +1,412 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="UTF-8"/><title>蝦拼組 系統櫃報價</title><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/><script src="https://cdn.tailwindcss.com"></script><script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script><style>body{box-sizing:border-box}html,body{height:100%;-webkit-overflow-scrolling:touch}*{-webkit-tap-highlight-color:transparent}.wood-bg{background-image:linear-gradient(135deg,#D6B28F 0,#F5DEB3 45%,#C59F7B 100%)}.elevated{box-shadow:0 18px 40px rgba(15,23,42,.25)}</style></head><body class="min-h-screen bg-[#0f172a]"><div class="max-w-md mx-auto min-h-screen flex flex-col bg-slate-100"><header class="relative overflow-hidden"><div class="wood-bg h-20 w-full"></div><div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#022c22] via-[#064e3b]/95 to-transparent"></div><div class="absolute inset-0 flex flex-col justify-end px-4 pb-4"><p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">SYSTEM CABINET QUOTE</p><h1 class="text-2xl font-semibold text-white">蝦拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1><p class="text-[11px] text-emerald-100/80 mt-1">深綠工程風｜以 Google Sheet 價目表驅動</p></div></header><main class="flex-1 overflow-y-auto px-4 pb-28 pt-4 space-y-4"><section class="bg-white rounded-2xl elevated p-4 space-y-3"><h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">1</span>客戶資訊（必填）</h2><div class="grid grid-cols-2 gap-3 text-sm"><div><label class="block text-xs text-slate-500 mb-1">客戶姓名（必填）</label><input id="customerName" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="例如：王設計" required/></div><div><label class="block text-xs text-slate-500 mb-1">聯絡電話（必填）</label><input id="customerPhone" type="tel" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="09xx-" required/></div></div></section><section class="bg-white rounded-2xl elevated p-4 space-y-3"><h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">2</span>新增報價項目</h2><p id="loadStatus" class="text-[11px] text-slate-400">正在從 Google Sheet 載入價目表…</p><div class="grid grid-cols-2 gap-3 text-sm"><div><label class="block text-xs text-slate-500 mb-1">商品群組</label><select id="groupSelect" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="ALL">全部</option><option value="櫃體">櫃體</option><option value="抽屜">抽屜</option><option value="板材/封板">板材／封板</option><option value="五金/加工">五金／加工／電料</option></select></div><div><label class="block text-xs text-slate-500 mb-1">單位提示</label><p id="unitHint" class="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-[6px]">先選擇商品，再輸入數量</p></div></div><div><label class="block text-xs text-slate-500 mb-1">商品項目（來自 Google Sheet）</label><select id="itemSelect" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">載入中…</option></select><p id="itemNote" class="text-[11px] text-slate-400 mt-1"></p></div><div class="grid grid-cols-2 gap-3 text-sm mt-2"><div><label class="block text-xs text-slate-500 mb-1">數量</label><input id="qtyInput" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="例如：3"/></div><div class="flex flex-col justify-between"><div><span class="block text-xs text-slate-500 mb-1">單價 × 數量</span><p id="linePreview" class="text-sm font-medium text-slate-800">—</p></div></div></div><button id="addItemBtn" class="w-full mt-2 bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl shadow-md">加入本次報價</button></section><section class="bg-white rounded-2xl elevated p-4 space-y-3 mb-2"><h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">3</span>報價項目清單</h2><div id="quoteList" class="space-y-2 text-sm"><p class="text-xs text-slate-400">尚未加入任何項目。</p></div><div class="border-t pt-2 mt-2 text-sm"><div class="flex justify-between items-center"><span class="text-slate-600 font-medium">小計</span><span id="subtotalDisplay" class="font-semibold text-slate-800">—</span></div><div class="flex justify-between items-center mt-2 text-xs text-slate-700"><span>未滿五萬運費工資補貼</span><span id="ufAmountDisplay">+ $0</span></div><div class="flex justify-between items-center mt-2 border-t pt-2"><span class="text-slate-700 font-semibold">總價</span><span id="totalDisplay" class="text-lg font-bold text-emerald-700">—</span></div></div></section></main><footer class="fixed bottom-0 left-0 right-0 bg-[#022c22] border-t border-emerald-900/40"><div class="max-w-md mx-auto flex items-center justify-between px-4 py-3 gap-3"><div class="text-xs text-emerald-100"><p class="font-semibold">報價總額</p><p id="footerTotal" class="text-lg font-bold text-emerald-300">—</p></div><button id="sendBtn" class="flex-1 bg-emerald-500 text-emerald-950 text-sm font-semibold py-2 rounded-xl shadow-lg active:scale-95">送出報價</button></div></footer></div><script>
-const SHEETS=[
-{url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv",group:"櫃體"},
-{url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv",group:"抽屜"},
-{url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv",group:"板材/封板"},
-{url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv",group:"五金/加工"}
-];
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>蝦拼組 系統櫃報價</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body{box-sizing:border-box;}html,body{height:100%;-webkit-overflow-scrolling:touch;}*{-webkit-tap-highlight-color:transparent;}
+    .wood-bg{background-image:linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%);}
+    .elevated{box-shadow:0 18px 40px rgba(15,23,42,0.25);}
+  </style>
+</head>
 
-const loadStatus=document.getElementById("loadStatus"),groupSelect=document.getElementById("groupSelect"),itemSelect=document.getElementById("itemSelect"),unitHint=document.getElementById("unitHint"),itemNote=document.getElementById("itemNote"),qtyInput=document.getElementById("qtyInput"),linePreview=document.getElementById("linePreview"),addItemBtn=document.getElementById("addItemBtn"),quoteList=document.getElementById("quoteList"),subtotalDisplay=document.getElementById("subtotalDisplay"),ufAmountDisplay=document.getElementById("ufAmountDisplay"),totalDisplay=document.getElementById("totalDisplay"),footerTotal=document.getElementById("footerTotal"),sendBtn=document.getElementById("sendBtn"),customerNameInput=document.getElementById("customerName"),customerPhoneInput=document.getElementById("customerPhone");
+<body class="min-h-screen bg-[#0f172a]">
+<div class="max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
 
-let allItems=[],quoteItems=[];
+  <!-- HEADER -->
+  <header class="relative overflow-hidden">
+    <div class="wood-bg h-20 w-full"></div>
+    <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#022c22] via-[#064e3b]/95 to-transparent"></div>
+    <div class="absolute inset-0 flex flex-col justify-end px-4 pb-4">
+      <p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">SYSTEM CABINET QUOTE</p>
+      <h1 class="text-2xl font-semibold text-white">蝦拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1>
+      <p class="text-[11px] text-emerald-100/80 mt-1">深綠工程風｜以 Google Sheet 價目表驅動</p>
+    </div>
+  </header>
 
-function parseCSV(t){const r=[];let e="",n=[],o=!1;for(let i=0;i<t.length;i++){const a=t[i],s=t[i+1];if(a=='"'&&o&&s=='"'){e+='"',i++;continue}if(a=='"'){o=!o;continue}if(a==","&&!o){n.push(e),e="";continue}if((a=="\n"||a=="\r")&&!o){(e||n.length)&&(n.push(e),r.push(n),n=[],e="");continue}e+=a}(e||n.length)&&(n.push(e),r.push(n));return r}
+  <!-- MAIN -->
+  <main class="flex-1 overflow-y-auto px-4 pb-28 pt-4 space-y-4">
 
-async function loadPriceList(){
-  try{
-    let merged=[];
-    for(const s of SHEETS){
-      const res=await fetch(s.url+"&rand="+Math.random());
-      const txt=await res.text();
-      const rows=parseCSV(txt);
-      const h=rows[0];
-      const code=h.indexOf("編碼"),name=h.indexOf("名稱"),unit=h.indexOf("單位"),price=h.indexOf("單價");
-      merged=merged.concat(rows.slice(1).map(r=>({code:r[code],name:r[name],unit:r[unit],price:parseFloat(r[price]||0),group:s.group})))
-    }
-    allItems=merged.filter(x=>x.code&&!isNaN(x.price));
-    loadStatus.textContent=`已載入 ${allItems.length} 筆資料`;
-    buildItemOptions();
-  }catch(err){
-    loadStatus.textContent="⚠️ Google Sheet 載入錯誤";
-    console.error(err);
-  }
+    <!-- 客戶資訊 -->
+    <section class="bg-white rounded-2xl elevated p-4 space-y-3">
+      <h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">1</span>
+        客戶資訊（必填）
+      </h2>
+
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">客戶姓名</label>
+          <input id="customerName" required type="text"
+            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-emerald-300"
+            placeholder="例如：王設計" />
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">聯絡電話</label>
+          <input id="customerPhone" required type="tel"
+            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-emerald-300"
+            placeholder="必填" />
+        </div>
+      </div>
+    </section>
+
+    <!-- 新增報價項目 -->
+    <section class="bg-white rounded-2xl elevated p-4 space-y-3">
+      <h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">2</span>
+        新增報價項目
+      </h2>
+
+      <p id="loadStatus" class="text-[11px] text-slate-400">正在從 Google Sheet 載入價目表…</p>
+
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">商品群組</label>
+          <select id="groupSelect" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="ALL">全部</option>
+            <option value="櫃體">櫃體</option>
+            <option value="抽屜">抽屜</option>
+            <option value="板材/封板">板材／封板</option>
+            <option value="五金/加工">五金／加工／電料</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">單位提示</label>
+          <p id="unitHint"
+            class="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-[6px]">
+            先選擇商品，再輸入數量
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">商品項目（來自 Google Sheet）</label>
+        <select id="itemSelect" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="">載入中…</option>
+        </select>
+        <p id="itemNote" class="text-[11px] text-slate-400 mt-1"></p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mt-2 text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">數量</label>
+          <input id="qtyInput" type="number" min="0" step="0.1"
+            class="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="例如：3、4.5" />
+        </div>
+
+        <div class="flex flex-col justify-between">
+          <div>
+            <span class="block text-xs text-slate-500 mb-1">單價 × 數量</span>
+            <p id="linePreview" class="text-sm font-medium text-slate-800">—</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="addItemBtn"
+        class="w-full mt-2 bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl shadow-md active:scale-95">
+        加入本次報價
+      </button>
+    </section>
+
+    <!-- 報價清單 -->
+    <section class="bg-white rounded-2xl elevated p-4 space-y-3 mb-2">
+      <h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">3</span>
+        報價項目清單
+      </h2>
+
+      <div id="quoteList" class="space-y-2 text-sm">
+        <p class="text-xs text-slate-400">尚未加入任何項目。</p>
+      </div>
+
+      <div class="border-t pt-2 mt-2 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-slate-600 font-medium">小計</span>
+          <span id="subtotalDisplay" class="font-semibold text-slate-800">—</span>
+        </div>
+
+        <!-- UF 自動加價（固定顯示，不可勾選） -->
+        <div class="flex items-center justify-between mt-2 text-xs">
+          <span class="text-slate-600">未滿五萬運費工資補貼</span>
+          <span id="ufAmountDisplay" class="text-slate-700">+ $0</span>
+        </div>
+
+        <div class="flex justify-between items-center mt-2 border-t pt-2">
+          <span class="text-slate-700 font-semibold">總價</span>
+          <span id="totalDisplay" class="text-lg font-bold text-emerald-700">—</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部 -->
+  <footer class="fixed bottom-0 left-0 right-0 bg-[#022c22] border-t border-emerald-900/40">
+    <div class="max-w-md mx-auto flex items-center justify-between px-4 py-3 gap-3">
+      <div class="text-xs text-emerald-100">
+        <p class="font-semibold">報價總額</p>
+        <p id="footerTotal" class="text-lg font-bold text-emerald-300">—</p>
+      </div>
+
+      <button id="sendBtn"
+        class="flex-1 bg-emerald-500 text-emerald-950 text-sm font-semibold py-2 rounded-xl shadow-lg active:scale-95">
+        傳送報價
+      </button>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+/* 4 個 Google Sheet CSV */
+const CSV_URLS = {
+  cabinets: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv",
+  drawers: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv",
+  boards: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv",
+  hardwares:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv"
+};
+
+let allItems = [];
+let quoteItems = [];
+let userId = null;
+
+/* CSV parser */
+function parseCSV(text){
+  const rows=[], row=[], quotes=/^"|"$/g;
+  return text.trim().split("\n").map(r =>
+    r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,""))
+  );
 }
+
+/* 讀取四個 sheet */
+async function loadAllSheets(){
+  let merged = [];
+  for(const key in CSV_URLS){
+    const url = CSV_URLS[key] + "&rand=" + Math.random();
+    const res = await fetch(url);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    const header = rows[0];
+    const idxCode = header.indexOf("編碼");
+    const idxName = header.indexOf("名稱");
+    const idxUnit = header.indexOf("單位");
+    const idxPrice = header.indexOf("單價");
+
+    const segment = rows.slice(1).map(r => ({
+      code:r[idxCode],
+      name:r[idxName],
+      unit:r[idxUnit],
+      price:parseFloat(r[idxPrice]||0),
+      group: inferGroup(r[idxCode])
+    })).filter(x => x.code && !isNaN(x.price));
+
+    merged = merged.concat(segment);
+  }
+  allItems = merged;
+  loadStatus.textContent = `已載入 ${allItems.length} 筆資料`;
+  buildItemOptions();
+}
+
+/* 商品分類 */
+function inferGroup(code){
+  if(/^[1-9]/.test(code)) return "櫃體";
+  if(/^D/.test(code)) return "抽屜";
+  if(/^(FA|T)/.test(code)) return "板材/封板";
+  if(/^(TJ|UF|Z)/.test(code)) return "五金/加工";
+  return "其他";
+}
+
+/* 選單 */
+const groupSelect=document.getElementById("groupSelect");
+const itemSelect=document.getElementById("itemSelect");
+const unitHint=document.getElementById("unitHint");
+const itemNote=document.getElementById("itemNote");
+const qtyInput=document.getElementById("qtyInput");
+const linePreview=document.getElementById("linePreview");
+const quoteList=document.getElementById("quoteList");
+const subtotalDisplay=document.getElementById("subtotalDisplay");
+const ufAmountDisplay=document.getElementById("ufAmountDisplay");
+const totalDisplay=document.getElementById("totalDisplay");
+const footerTotal=document.getElementById("footerTotal");
 
 function buildItemOptions(){
-  const g=groupSelect.value;
-  const list=g==="ALL"?allItems:allItems.filter(x=>x.group===g);
-  if(!list.length){itemSelect.innerHTML="<option>無資料</option>";return}
-  itemSelect.innerHTML=list.map(x=>`<option value="${x.code}">[${x.code}] ${x.name}｜${x.unit} $${x.price}</option>`).join("");
-  updateUnitHint();
+  const g = groupSelect.value;
+  const items = g==="ALL"? allItems : allItems.filter(x=>x.group===g);
+
+  if(!items.length){
+    itemSelect.innerHTML = `<option value="">此群組無資料</option>`;
+    return;
+  }
+
+  itemSelect.innerHTML = items.map(
+    x=>`<option value="${x.code}">[${x.code}] ${x.name}｜${x.unit} $${x.price}</option>`
+  ).join("");
+
+  updateUnit();
 }
 
-function getSelectedItem(){return allItems.find(x=>x.code===itemSelect.value) || null;}
+function getSelectedItem(){
+  return allItems.find(x=>x.code===itemSelect.value)||null;
+}
 
-function updateUnitHint(){
-  const item=getSelectedItem();
+function updateUnit(){
+  const item = getSelectedItem();
   if(!item){
     unitHint.textContent="先選擇商品，再輸入數量";
     itemNote.textContent="";
     return;
   }
-  const map={"櫃體":"以「尺」計價","抽屜":"以「組」計價","板材/封板":"以「才」計價","五金/加工":"依單位計價"};
-  unitHint.textContent=map[item.group]||"依單位計價";
-  itemNote.textContent=`單位：${item.unit}｜單價：$${item.price}`;
-  updateLinePreview();
+  const map={
+    "櫃體":"以「尺」計價",
+    "抽屜":"以「組」計價",
+    "板材/封板":"以「才」計價",
+    "五金/加工":"依單位計價"
+  };
+  unitHint.textContent = map[item.group] || "依單位計價";
+  itemNote.textContent = `單位：${item.unit}｜單價：$${item.price}`;
 }
 
-function updateLinePreview(){
+function updatePreview(){
   const item=getSelectedItem();
-  const qty=parseFloat(qtyInput.value||"0");
+  const qty=parseFloat(qtyInput.value||0);
   if(!item||qty<=0){linePreview.textContent="—";return;}
+  const amt=Math.round(item.price*qty);
+  linePreview.textContent=`$${item.price} × ${qty} = $${amt.toLocaleString()}`;
+}
+
+/* 新增項目 */
+document.getElementById("addItemBtn").onclick=()=>{
+  const item=getSelectedItem();
+  const qty=parseFloat(qtyInput.value||0);
+  if(!item||qty<=0){alert("請選擇商品並輸入數量");return;}
   const amount=Math.round(item.price*qty);
-  linePreview.textContent=`$${item.price} × ${qty} = $${amount.toLocaleString()}`;
-}
+  quoteItems.push({...item,qty,amount});
+  qtyInput.value="";
+  updatePreview();
+  renderList();
+};
 
-function renderQuoteList(){
+/* 渲染清單 */
+function renderList(){
   if(!quoteItems.length){
-    quoteList.innerHTML='<p class="text-xs text-slate-400">尚未加入任何項目。</p>';
-    subtotalDisplay.textContent="—";totalDisplay.textContent="—";footerTotal.textContent="—";ufAmountDisplay.textContent="+ $0";return;
+    quoteList.innerHTML=`<p class="text-xs text-slate-400">尚未加入任何項目。</p>`;
+    subtotalDisplay.textContent="—";
+    totalDisplay.textContent="—";
+    footerTotal.textContent="—";
+    ufAmountDisplay.textContent="+ $0";
+    return;
   }
-  quoteList.innerHTML=quoteItems.map((it,i)=>`<div class="flex justify-between items-start border rounded-xl px-3 py-2"><div class="text-xs"><p class="font-semibold text-slate-800">[${it.code}] ${it.name}</p><p class="text-[11px] text-slate-500">數量：${it.qty} ${it.unit}｜小計 $${it.amount.toLocaleString()}</p></div><button data-i="${i}" class="text-red-500 text-[11px] removeBtn">刪除</button></div>`).join("");
-  document.querySelectorAll(".removeBtn").forEach(b=>b.onclick=()=>{quoteItems.splice(b.dataset.i,1);renderQuoteList();recalcTotal();});
-  recalcTotal();
+
+  quoteList.innerHTML = quoteItems.map((it,i)=>`
+    <div class="flex justify-between items-start border rounded-xl px-3 py-2">
+      <div class="text-xs">
+        <p class="font-semibold text-slate-800">[${it.code}] ${it.name}</p>
+        <p class="text-[11px] text-slate-500">數量：${it.qty} ${it.unit}｜小計 $${it.amount.toLocaleString()}</p>
+      </div>
+      <button data-i="${i}" class="text-red-500 text-[11px] removeBtn">刪除</button>
+    </div>
+  `).join("");
+
+  document.querySelectorAll(".removeBtn").forEach(btn=>{
+    btn.onclick=()=>{
+      quoteItems.splice(btn.dataset.i,1);
+      renderList();
+      calcTotal();
+    };
+  });
+
+  calcTotal();
 }
 
-function recalcTotal(){
-  const subtotal=quoteItems.reduce((s,x)=>s+x.amount,0);
-  subtotalDisplay.textContent="$"+subtotal.toLocaleString();
-  let uf=subtotal<50000?6000:0;
-  ufAmountDisplay.textContent="+ $"+uf.toLocaleString();
-  const total=subtotal+uf;
-  totalDisplay.textContent="$"+total.toLocaleString();
-  footerTotal.textContent="$"+total.toLocaleString();
+/* 計算總價 = subtotal + UF(自動) */
+function calcTotal(){
+  const subtotal = quoteItems.reduce((s,x)=>s+x.amount,0);
+  subtotalDisplay.textContent=`$${subtotal.toLocaleString()}`;
+
+  let ufFee = 0;
+  if(subtotal < 50000) ufFee = 6000;
+
+  ufAmountDisplay.textContent = `+ $${ufFee.toLocaleString()}`;
+
+  const total = subtotal + ufFee;
+  totalDisplay.textContent=`$${total.toLocaleString()}`;
+  footerTotal.textContent=`$${total.toLocaleString()}`;
+
+  return {subtotal, ufFee, total};
 }
 
+/* 建立送給 Make 的 payload */
 function buildPayload(){
-  const subtotal=quoteItems.reduce((s,x)=>s+x.amount,0);
-  const uf=subtotal<50000?6000:0;
-  return{
-    customerName:customerNameInput.value.trim(),
-    customerPhone:customerPhoneInput.value.trim(),
-    items:quoteItems,
+  const {subtotal, ufFee, total} = calcTotal();
+  const itemsText = quoteItems.map((it,i)=>
+    `${i+1}. [${it.code}] ${it.name}｜${it.qty}${it.unit}＝$${it.amount.toLocaleString()}`
+  ).join("\n");
+
+  return {
+    userId,
+    customerName: document.getElementById("customerName").value.trim(),
+    customerPhone: document.getElementById("customerPhone").value.trim(),
     subtotal,
-    ufFee:uf,
-    total:subtotal+uf
+    ufFee,
+    total,
+    itemsText,
+    itemsRaw: JSON.stringify(quoteItems)
   };
 }
 
-async function sendToMake(){
-  const name=customerNameInput.value.trim(),phone=customerPhoneInput.value.trim();
-  if(!name||!phone){alert("請填寫客戶姓名與電話");return;}
-  const data=buildPayload();
-  try{
-    await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
-    alert("已成功送出報價！");
-    if(liff.isInClient())liff.closeWindow();
-  }catch(e){
-    alert("送出失敗，請稍後再試");
+/* ♻️ LIFF 初始化 & 取得 userId */
+async function initLiff(){
+  await liff.init({ liffId:"2008590887-zkqDbWqb" });
+  if(liff.isInClient()){
+    const profile = await liff.getProfile();
+    userId = profile.userId;
   }
 }
 
-async function initLiff(){
-  try{await liff.init({liffId:"2008590887-zkqDbWqb"});}catch(e){console.warn("LIFF 初始化失敗",e);}
+/* ★ 送到 Make */
+async function sendToMake(){
+  const name = document.getElementById("customerName").value.trim();
+  const phone = document.getElementById("customerPhone").value.trim();
+  if(!name || !phone){
+    alert("請完整填寫：姓名 + 電話");
+    return;
+  }
+
+  if(!userId){
+    alert("無法取得 userId，請從 LINE App 開啟頁面");
+    return;
+  }
+
+  const payload = buildPayload();
+
+  await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify(payload)
+  });
+
+  alert("報價已送出！");
+  if(liff.isInClient()) liff.closeWindow();
 }
 
-function init(){
-  initLiff();
-  loadPriceList();
+/* INIT */
+document.addEventListener("DOMContentLoaded",async()=>{
+  await initLiff();
+  await loadAllSheets();
+
   groupSelect.onchange=buildItemOptions;
-  itemSelect.onchange=updateUnitHint;
-  qtyInput.oninput=updateLinePreview;
-  addItemBtn.onclick=()=>{const item=getSelectedItem(),qty=parseFloat(qtyInput.value||"0");if(!item||qty<=0){alert("請選擇商品與輸入數量");return;}quoteItems.push({...item,qty,amount:Math.round(item.price*qty)});qtyInput.value="";updateLinePreview();renderQuoteList();};
-  sendBtn.onclick=sendToMake;
-}
+  itemSelect.onchange=()=>{updateUnit();updatePreview();};
+  qtyInput.oninput=updatePreview;
 
-document.addEventListener("DOMContentLoaded",init);
-</script></body></html>
+  document.getElementById("sendBtn").onclick=sendToMake;
+});
+</script>
+
+</body>
+</html>
