@@ -178,7 +178,7 @@ let userId = null;
 
 /* CSV parser */
 function parseCSV(text){
-  const rows=[], row=[], quotes=/^"|"$/g;
+  const quotes=/^"|"$/g;
   return text.trim().split("\n").map(r =>
     r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,""))
   );
@@ -360,12 +360,41 @@ function buildPayload(){
   };
 }
 
-/* ♻️ LIFF 初始化 & 取得 userId */
+/* ♻️ LIFF 初始化 & 取得 userId（已替換為強化版） */
 async function initLiff(){
-  await liff.init({ liffId:"2008590887-zkqDbWqb" });
-  if(liff.isInClient()){
-    const profile = await liff.getProfile();
-    userId = profile.userId;
+  try{
+    await liff.init({ liffId:"2008590887-zkqDbWqb" });
+
+    // 外部瀏覽器：通常需要先登入
+    if(!liff.isLoggedIn()){
+      // 登入後會跳回本頁（同一個 URL）
+      liff.login({ redirectUri: window.location.href });
+      return;
+    }
+
+    // 優先：getProfile（在 LINE App 內最穩；外部瀏覽器多數也可用）
+    try{
+      const profile = await liff.getProfile();
+      userId = profile.userId;
+    }catch(e){
+      // 次選：用 ID Token 的 sub（很多情境更穩）
+      const decoded = liff.getDecodedIDToken?.();
+      userId = decoded?.sub || null;
+    }
+
+    // 保底再試一次 decoded
+    if(!userId){
+      const decoded = liff.getDecodedIDToken?.();
+      userId = decoded?.sub || null;
+    }
+
+    if(!userId){
+      console.warn("LIFF 已登入，但 userId 仍取得失敗。");
+    }
+  }catch(err){
+    console.error("LIFF init failed:", err);
+    // 若你想在 Canva/外部測試也能送出，可暫時打開下面一行
+    // userId = "TEST_USER";
   }
 }
 
@@ -379,7 +408,7 @@ async function sendToMake(){
   }
 
   if(!userId){
-    alert("無法取得 userId，請從 LINE App 開啟頁面");
+    alert("無法取得 userId，請從 LINE App 開啟頁面，或在外部瀏覽器完成 LINE 登入。");
     return;
   }
 
