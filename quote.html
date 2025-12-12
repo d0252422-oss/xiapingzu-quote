@@ -23,7 +23,7 @@
     <div class="absolute inset-0 flex flex-col justify-end px-4 pb-4">
       <p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">SYSTEM CABINET QUOTE</p>
       <h1 class="text-2xl font-semibold text-white">蝦拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1>
-      <p class="text-[11px] text-emerald-100/80 mt-1">輸入總寬/高/深｜自動匹配 高/深/寬30 櫃體單價｜自動換算櫃數</p>
+      <p class="text-[11px] text-emerald-100/80 mt-1">輸入總寬/高/深（cm）｜自動匹配 高/深/寬30 櫃體單價｜不足一櫃補一櫃</p>
     </div>
   </header>
 
@@ -73,7 +73,7 @@
         <div>
           <label class="block text-xs text-slate-500 mb-1">固定規格</label>
           <p class="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-[6px]">
-            以「寬 30」櫃體單價計算（總寬 ÷ 30 = 櫃數，不足一櫃補一櫃）
+            以「寬 30cm」櫃體單價計算（總寬 ÷ 30cm，不足一櫃補一櫃）
           </p>
         </div>
       </div>
@@ -83,7 +83,7 @@
           <label class="block text-xs text-slate-500 mb-1">總寬度（cm）</label>
           <input id="totalWidthCm" type="number" min="0" step="1"
             class="w-full border rounded-lg px-3 py-2 text-sm"
-            placeholder="例如：350" />
+            placeholder="例如：340" />
         </div>
         <div>
           <label class="block text-xs text-slate-500 mb-1">高度（cm）</label>
@@ -101,7 +101,7 @@
 
       <div class="border rounded-xl px-3 py-2 bg-slate-50">
         <p class="text-xs text-slate-600 font-medium">自動帶入結果</p>
-        <p id="matchHint" class="text-[11px] text-slate-500 mt-1">請輸入總寬/高/深，系統會自動匹配「高/深/寬30」單價並換算櫃數。</p>
+        <p id="matchHint" class="text-[11px] text-slate-500 mt-1">請輸入總寬/高/深（cm），系統會自動匹配「高/深/寬30」單價並換算櫃數。</p>
         <p id="linePreview" class="text-sm font-semibold text-slate-800 mt-1">—</p>
       </div>
 
@@ -160,14 +160,18 @@
 </div>
 
 <script>
-/* 只保留「櫃體」Google Sheet CSV */
+/* 櫃體價目表（CSV） */
 const CABINETS_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
 
-/* 固定以寬 30 的櫃體單價計算 */
+/* 固定以寬 30cm 的櫃體單價計算（總寬 ÷ 30） */
 const BASE_CABINET_WIDTH_CM = 30;
 
-let cabinetPriceRows = []; // 解析後的價目表（含 height/depth/width/price）
+/* 注意：你的資料表「高度/深度」是 300/600/2100/600 這種格式（mm），
+   使用者輸入是 cm（例如 210 / 53），所以需要 cm → mm（×10）做匹配 */
+const CM_TO_MM = 10;
+
+let cabinetRows = [];   // {code,name,heightMm,depthMm,widthCm,price,type}
 let quoteItems = [];
 let userId = null;
 
@@ -175,23 +179,11 @@ let userId = null;
 function parseCSV(text){
   const quotes=/^"|"$/g;
   return text.trim().split("\n").map(r =>
-    r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,""))
+    r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,"").trim())
   );
 }
 
-/* 從名稱解析高度/深度/寬度：需像「高210 深60 寬30」或「W30」 */
-function extractDims(name){
-  const h = (name.match(/高\s*(\d{2,4})/i) || [])[1];
-  const d = (name.match(/深\s*(\d{2,4})/i) || [])[1];
-  const w = (name.match(/寬\s*(\d{2,4})/i) || name.match(/\bW\s*(\d{2,4})\b/i) || [])[1];
-  return {
-    height: h ? parseInt(h,10) : null,
-    depth:  d ? parseInt(d,10) : null,
-    width:  w ? parseInt(w,10) : null
-  };
-}
-
-/* 載入櫃體價目表 */
+/* 載入櫃體價目表（直接用欄位：高度/深度/寬度/單價/類型） */
 async function loadCabinetSheet(){
   const url = CABINETS_CSV + "&rand=" + Math.random();
   const res = await fetch(url);
@@ -201,63 +193,86 @@ async function loadCabinetSheet(){
 
   const idxCode  = header.indexOf("編碼");
   const idxName  = header.indexOf("名稱");
-  const idxUnit  = header.indexOf("單位");
+  const idxH     = header.indexOf("高度");
+  const idxD     = header.indexOf("深度");
+  const idxW     = header.indexOf("寬度");
   const idxPrice = header.indexOf("單價");
+  const idxType  = header.indexOf("類型");
 
   const raw = rows.slice(1).map(r => {
-    const code  = (r[idxCode]  || "").trim();
-    const name  = (r[idxName]  || "").trim();
-    const unit  = (r[idxUnit]  || "").trim();
-    const price = parseFloat((r[idxPrice] || "0").toString().replace(/[, ]/g,"")) || 0;
-    const dims = extractDims(name);
-    return { code, name, unit, price, height: dims.height, depth: dims.depth, width: dims.width };
-  }).filter(x => x.code && x.price > 0);
+    const code = (r[idxCode] || "").trim();
+    const name = (r[idxName] || "").trim();
 
-  cabinetPriceRows = raw;
+    // 高度/深度：mm（例如 2100/600）；寬度：cm（例如 30）
+    const heightMm = parseInt((r[idxH] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const depthMm  = parseInt((r[idxD] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const widthCm  = parseInt((r[idxW] || "0").replace(/[^0-9]/g,""), 10) || 0;
 
-  const usable = cabinetPriceRows.filter(x => x.height && x.depth && x.width).length;
-  loadStatus.textContent = `已載入 ${cabinetPriceRows.length} 筆櫃體資料（可解析高/深/寬：${usable} 筆）`;
+    const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
+    const type  = (r[idxType] || "").trim();
 
+    return { code, name, heightMm, depthMm, widthCm, price, type };
+  })
+  .filter(x => x.code && x.price > 0 && x.type === "櫃體" && x.heightMm > 0 && x.depthMm > 0 && x.widthCm > 0);
+
+  cabinetRows = raw;
+
+  loadStatus.textContent = `已載入 ${cabinetRows.length} 筆櫃體資料（寬${BASE_CABINET_WIDTH_CM}cm 規格將優先使用）`;
   updateMatchAndPreview();
 }
 
 /* 匹配規則：
-   - 寬度：優先找 width=30；若完全沒有 30，改用「最接近 30」當備援（會提示）
-   - 高度：優先 exact；沒有就找最接近高度
-   - 深度：向上取「>=輸入深度」的最小深度；若都小於則用最大深度
+   - 寬度：優先 width=30cm；若沒有，改用最接近 30cm（會提示）
+   - 高度：優先 exact（mm）；沒有就找最接近高度（mm）
+   - 深度：向上取「>=輸入深度(mm)」的最小深度；若都小於則用最大深度
+   - 同一規格若同時存在「開門櫃」與「空櫃」，優先使用「開門櫃」
 */
-function findBestCabinetRate(inputH, inputD, requiredW){
-  const candidates = cabinetPriceRows.filter(x => x.height && x.depth && x.width);
+function findBestCabinetRate(inputHeightMm, inputDepthMm, requiredWidthCm){
+  const candidates = cabinetRows.slice();
+  if(!candidates.length) return { best:null, warn:"櫃體價目表無有效資料。" };
 
-  if(!candidates.length) return { best:null, warn:"價目表中沒有可解析高/深/寬的櫃體資料。" };
-
-  // 1) 寬度 pool
-  let widthPool = candidates.filter(x => x.width === requiredW);
+  // 1) width pool
+  let widthPool = candidates.filter(x => x.widthCm === requiredWidthCm);
   let widthWarn = "";
   if(!widthPool.length){
-    const sortedByW = candidates.slice().sort((a,b)=>Math.abs(a.width-requiredW)-Math.abs(b.width-requiredW));
-    const bestW = sortedByW[0].width;
-    widthPool = candidates.filter(x => x.width === bestW);
-    widthWarn = `找不到寬${requiredW}，已改用寬${bestW}作為備援。`;
+    const sortedByW = candidates.slice().sort((a,b)=>Math.abs(a.widthCm-requiredWidthCm)-Math.abs(b.widthCm-requiredWidthCm));
+    const bestW = sortedByW[0].widthCm;
+    widthPool = candidates.filter(x => x.widthCm === bestW);
+    widthWarn = `找不到寬${requiredWidthCm}，已改用寬${bestW}作為備援。`;
   }
 
-  // 2) 高度 pool（exact > closest）
-  let heightPool = widthPool.filter(x => x.height === inputH);
-  let heightPicked = inputH;
+  // 2) height pool (exact > closest)
+  let heightPool = widthPool.filter(x => x.heightMm === inputHeightMm);
   if(!heightPool.length){
-    const sortedByH = widthPool.slice().sort((a,b)=>Math.abs(a.height-inputH)-Math.abs(b.height-inputH));
-    heightPicked = sortedByH[0].height;
-    heightPool = widthPool.filter(x => x.height === heightPicked);
+    const sortedByH = widthPool.slice().sort((a,b)=>Math.abs(a.heightMm-inputHeightMm)-Math.abs(b.heightMm-inputHeightMm));
+    const pickH = sortedByH[0].heightMm;
+    heightPool = widthPool.filter(x => x.heightMm === pickH);
   }
 
-  // 3) 深度：向上取最小 >= inputD
-  const depthSorted = heightPool.slice().sort((a,b)=>a.depth-b.depth);
-  let best = depthSorted.find(x => x.depth >= inputD);
+  // 3) depth: smallest >= inputDepthMm else max
+  const depthSorted = heightPool.slice().sort((a,b)=>a.depthMm-b.depthMm);
+  let best = depthSorted.find(x => x.depthMm >= inputDepthMm);
   if(!best) best = depthSorted[depthSorted.length-1] || null;
 
-  if(!best) return { best:null, warn:"無法匹配到櫃體單價（請確認表內有資料）。" };
+  if(!best) return { best:null, warn:"無法匹配到櫃體單價（請確認表內高度/深度/寬度）。" };
 
-  return { best, warn: widthWarn, pickedHeight: heightPicked };
+  // 4) prefer 開門櫃 if same H/D/W exists
+  const sameSpec = heightPool.filter(x => x.heightMm === best.heightMm && x.depthMm === best.depthMm && x.widthCm === best.widthCm);
+  const prefer = sameSpec.find(x => x.name.includes("開門櫃")) || best;
+
+  return { best: prefer, warn: widthWarn };
+}
+
+/* 櫃數計算：商 +（有餘數就 +1），全程整數運算（cm） */
+function calcCabinetCount(totalWidthCm){
+  const total = parseInt(totalWidthCm || "0", 10);
+  const base  = parseInt(BASE_CABINET_WIDTH_CM || "0", 10);
+  if(!(total > 0 && base > 0)) return 0;
+
+  const quotient  = Math.floor(total / base);
+  const remainder = total % base;
+
+  return quotient + (remainder > 0 ? 1 : 0);
 }
 
 /* UI elements */
@@ -277,37 +292,30 @@ const footerTotal     = document.getElementById("footerTotal");
 let currentMatch = null;
 let currentCount = 0;
 
-/* 櫃數計算：商 +（有餘數就 +1），全程整數運算 */
-function calcCabinetCount(totalWidthCm){
-  const total = parseInt(totalWidthCm || "0", 10);
-  const base  = parseInt(BASE_CABINET_WIDTH_CM || "0", 10);
-  if(!(total > 0 && base > 0)) return 0;
-
-  const quotient  = Math.floor(total / base);
-  const remainder = total % base;
-
-  return quotient + (remainder > 0 ? 1 : 0);
-}
-
 function updateMatchAndPreview(){
-  const totalW = parseInt(totalWidthEl.value || "0", 10);
-  const H = parseInt(heightEl.value || "0", 10);
-  const D = parseInt(depthEl.value  || "0", 10);
+  const totalWcm = parseInt(totalWidthEl.value || "0", 10);
+  const Hcm = parseInt(heightEl.value || "0", 10);
+  const Dcm = parseInt(depthEl.value  || "0", 10);
 
   currentMatch = null;
   currentCount = 0;
 
-  if(!(totalW > 0 && H > 0 && D > 0)){
-    matchHint.textContent = "請輸入總寬/高/深，系統會自動匹配「高/深/寬30」單價並換算櫃數。";
+  if(!(totalWcm > 0 && Hcm > 0 && Dcm > 0)){
+    matchHint.textContent = "請輸入總寬/高/深（cm），系統會自動匹配「高/深/寬30」單價並換算櫃數。";
     linePreview.textContent = "—";
     return;
   }
 
-  const count = calcCabinetCount(totalW);
-  const { best, warn } = findBestCabinetRate(H, D, BASE_CABINET_WIDTH_CM);
+  const count = calcCabinetCount(totalWcm);
+
+  // cm -> mm (×10) for matching height/depth
+  const Hmm = Hcm * CM_TO_MM;
+  const Dmm = Dcm * CM_TO_MM;
+
+  const { best, warn } = findBestCabinetRate(Hmm, Dmm, BASE_CABINET_WIDTH_CM);
 
   if(!best){
-    matchHint.textContent = warn || "找不到可匹配的櫃體單價（請確認名稱含高/深/寬）。";
+    matchHint.textContent = warn || "找不到可匹配的櫃體單價。";
     linePreview.textContent = "—";
     return;
   }
@@ -320,25 +328,25 @@ function updateMatchAndPreview(){
 
   const warnText = warn ? `（注意：${warn}）` : "";
   matchHint.textContent =
-    `已匹配：高 ${best.height} / 深 ${best.depth} / 寬 ${best.width} ${warnText}（來源：[${best.code}] ${best.name}）`;
+    `已匹配：高 ${(best.heightMm/10).toFixed(0)} / 深 ${(best.depthMm/10).toFixed(0)} / 寬 ${best.widthCm} ${warnText}（來源：[${best.code}] ${best.name}）`;
 
   linePreview.textContent =
-    `總寬 ${totalW}cm → 櫃數 ${count}（寬${BASE_CABINET_WIDTH_CM} × ${count} = ${effectiveWidth}cm）｜單價 $${best.price.toLocaleString()} × ${count} = $${amount.toLocaleString()}`;
+    `總寬 ${totalWcm}cm → 櫃數 ${count}（寬${BASE_CABINET_WIDTH_CM} × ${count} = ${effectiveWidth}cm）｜單價 $${best.price.toLocaleString()} × ${count} = $${amount.toLocaleString()}`;
 }
 
 /* 新增櫃體項目 */
 document.getElementById("addItemBtn").onclick = () => {
   const label = document.getElementById("cabinetLabel").value.trim() || "櫃體";
-  const totalW = parseInt(totalWidthEl.value || "0", 10);
-  const H = parseInt(heightEl.value || "0", 10);
-  const D = parseInt(depthEl.value  || "0", 10);
+  const totalWcm = parseInt(totalWidthEl.value || "0", 10);
+  const Hcm = parseInt(heightEl.value || "0", 10);
+  const Dcm = parseInt(depthEl.value  || "0", 10);
 
-  if(!(totalW > 0 && H > 0 && D > 0)){
-    alert("請完整輸入：總寬度 / 高度 / 深度");
+  if(!(totalWcm > 0 && Hcm > 0 && Dcm > 0)){
+    alert("請完整輸入：總寬度 / 高度 / 深度（cm）");
     return;
   }
   if(!currentMatch || !(currentCount > 0)){
-    alert("尚未匹配到單價或櫃數，請確認價目表規格是否齊全。");
+    alert("尚未匹配到單價或櫃數，請確認價目表是否正常載入。");
     return;
   }
 
@@ -347,16 +355,15 @@ document.getElementById("addItemBtn").onclick = () => {
   quoteItems.push({
     type: "cabinet",
     label,
-    input: { totalWidthCm: totalW, heightCm: H, depthCm: D },
+    input: { totalWidthCm: totalWcm, heightCm: Hcm, depthCm: Dcm },
     baseWidthCm: BASE_CABINET_WIDTH_CM,
     count: currentCount,
     matched: {
       code: currentMatch.code,
       name: currentMatch.name,
-      height: currentMatch.height,
-      depth: currentMatch.depth,
-      width: currentMatch.width,
-      unit: currentMatch.unit,
+      heightMm: currentMatch.heightMm,
+      depthMm: currentMatch.depthMm,
+      widthCm: currentMatch.widthCm,
       unitPrice: currentMatch.price
     },
     amount
@@ -386,7 +393,7 @@ function renderList(){
             輸入：總寬 ${it.input.totalWidthCm} / 高 ${it.input.heightCm} / 深 ${it.input.depthCm}（cm）
           </p>
           <p class="text-[11px] text-emerald-700">
-            匹配單價：高 ${it.matched.height} / 深 ${it.matched.depth} / 寬 ${it.matched.width}
+            匹配單價：高 ${(it.matched.heightMm/10).toFixed(0)} / 深 ${(it.matched.depthMm/10).toFixed(0)} / 寬 ${it.matched.widthCm}
             ｜$${it.matched.unitPrice.toLocaleString()} / 櫃（${it.matched.code}）
           </p>
           <p class="text-[11px] text-slate-500">
@@ -431,7 +438,7 @@ function buildPayload(){
   const itemsText = quoteItems.map((it,i)=>(
     `${i+1}. ${it.label}\n` +
     `   輸入：總寬${it.input.totalWidthCm} 高${it.input.heightCm} 深${it.input.depthCm}cm\n` +
-    `   匹配：高${it.matched.height} 深${it.matched.depth} 寬${it.matched.width}｜$${it.matched.unitPrice}/櫃（${it.matched.code}）\n` +
+    `   匹配：高${(it.matched.heightMm/10).toFixed(0)} 深${(it.matched.depthMm/10).toFixed(0)} 寬${it.matched.widthCm}｜$${it.matched.unitPrice}/櫃（${it.matched.code}）\n` +
     `   櫃數：${it.count}（寬${it.baseWidthCm}×${it.count}=${it.baseWidthCm*it.count}cm）｜小計：$${it.amount.toLocaleString()}`
   )).join("\n\n");
 
