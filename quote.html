@@ -6,10 +6,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
-    body{box-sizing:border-box;}html,body{height:100%;-webkit-overflow-scrolling:touch;}*{-webkit-tap-highlight-color:transparent;}
+    body{box-sizing:border-box;}
+    html,body{height:100%;-webkit-overflow-scrolling:touch;}
+    *{-webkit-tap-highlight-color:transparent;}
     .wood-bg{background-image:linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%);}
     .elevated{box-shadow:0 18px 40px rgba(15,23,42,0.25);}
+
+    /* ====== 字體放大 1.25 倍（年長者友善）====== */
+    :root{ --scale: 1.25; }
+
+    /* 全站基準字級放大 */
+    html{ font-size: calc(16px * var(--scale)); }
+
+    /* 常用小字級全面拉高，避免仍是 11px 等級 */
+    .text-\[11px\]{ font-size: 0.90rem !important; } /* 約 14~15px */
+    .text-xs{ font-size: 0.98rem !important; }       /* 約 15px */
+    .text-sm{ font-size: 1.05rem !important; }       /* 約 16~17px */
+
+    /* 表單/按鈕：字更大 + 觸控高度更高 */
+    input, select, button{
+      font-size: 1.08rem !important;
+      line-height: 1.35 !important;
+    }
+    input, select{
+      padding-top: 0.85rem !important;
+      padding-bottom: 0.85rem !important;
+    }
+    button{
+      padding-top: 0.95rem !important;
+      padding-bottom: 0.95rem !important;
+    }
+
+    /* 說明文字不要太淡（長輩容易看不清） */
+    .text-slate-400, .text-slate-500{
+      color: rgba(71,85,105,0.95) !important;
+    }
+
+    /* 金額/總價再醒目一點 */
+    #totalDisplay, #footerTotal{
+      font-size: 1.45rem !important;
+    }
   </style>
 </head>
 
@@ -28,7 +66,8 @@
   </header>
 
   <!-- MAIN -->
-  <main class="flex-1 overflow-y-auto px-4 pb-28 pt-4 space-y-4">
+  <!-- pb-28 -> pb-36：字放大後避免底部 footer 壓到最後一筆 -->
+  <main class="flex-1 overflow-y-auto px-4 pb-36 pt-4 space-y-4">
 
     <!-- 客戶資訊 -->
     <section class="bg-white rounded-2xl elevated p-4 space-y-3">
