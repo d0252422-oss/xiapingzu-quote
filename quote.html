@@ -160,7 +160,7 @@
       <div class="border rounded-2xl p-3 bg-white">
         <div class="flex items-center justify-between">
           <p class="text-sm font-semibold text-slate-700">配件（可選）</p>
-          <p class="text-[11px] text-slate-500">抽屜依深度限制｜板材封板：長×寬→面積÷900→逐片進位</p>
+          <p class="text-[11px] text-slate-500">抽屜依深度限制｜板材封板：強制自動（長×寬→÷900→逐片進位）</p>
         </div>
 
         <div class="mt-3 space-y-3">
@@ -182,17 +182,14 @@
             <p class="text-[11px] text-slate-500 mt-2">右側為「每櫃抽屜組數」。總數 = 櫃數 × 每櫃組數。</p>
           </div>
 
-          <!-- 2) 板材封板（長寬輸入 → 面積(cm²) → ÷900 → 逐片無條件進位 → ×片數） -->
+          <!-- 2) 板材封板（強制自動） -->
           <div class="border rounded-xl p-3 bg-slate-50">
             <p class="text-xs font-semibold text-slate-700 mb-2">2) 板材封板</p>
 
             <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2">
-                <input id="boardAutoCalc" type="checkbox" class="h-4 w-4" checked>
-                <label for="boardAutoCalc" class="text-[11px] text-slate-700 font-semibold">
-                  自動依長×寬計算才數（1才=900cm²，逐片無條件進位）
-                </label>
-              </div>
+              <p class="text-[11px] text-slate-700 font-semibold">
+                強制自動計算（1才=900cm²，逐片無條件進位）
+              </p>
               <p class="text-[11px] text-slate-500">1才²=900cm²</p>
             </div>
 
@@ -202,16 +199,16 @@
                   <option value="">不需要</option>
                 </select>
                 <p class="text-[11px] text-slate-500 mt-1">
-                  自動模式：右側顯示「計算後總才數（唯讀）」；手動模式：右側為自訂數量（可選擇是否乘櫃數）。
+                  右側顯示「計算後總才數（唯讀）」。
                 </p>
               </div>
               <div>
-                <input id="boardQty" type="number" min="0" step="1" value="0"
-                  class="w-full border rounded-lg px-3 py-2 text-sm" />
+                <input id="boardQty" type="number" value="0" readonly
+                  class="w-full border rounded-lg px-3 py-2 text-sm bg-slate-100" />
               </div>
             </div>
 
-            <div id="boardAutoPanel" class="mt-2 border rounded-lg p-2 bg-white">
+            <div class="mt-2 border rounded-lg p-2 bg-white">
               <div class="grid grid-cols-3 gap-2">
                 <div>
                   <label class="block text-[11px] text-slate-600 mb-1">長（cm）</label>
@@ -233,15 +230,6 @@
               <p class="text-[11px] text-slate-500 mt-1">
                 計算：每片才數 = ceil( (長×寬) ÷ 900 )；總才數 = 每片才數 × 片數
               </p>
-            </div>
-
-            <div id="boardManualPanel" class="mt-2 hidden">
-              <div class="flex items-center gap-2">
-                <input id="boardMultiplyCab" type="checkbox" class="h-4 w-4">
-                <label for="boardMultiplyCab" class="text-[11px] text-slate-600">
-                  手動模式：數量要乘櫃數（總數 = 櫃數 × 右側數量）
-                </label>
-              </div>
             </div>
           </div>
 
@@ -503,7 +491,7 @@ function findBestRate(kind, inputHeightMm, inputDepthMm){
   return best;
 }
 
-/* ===== 板材封板：長寬→面積(cm²)→÷900→逐片無條件進位→×片數 ===== */
+/* ===== 板材封板：強制自動（長寬→面積÷900→逐片無條件進位→×片數） ===== */
 function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const u = normUnit(rowUnit);
   const L = parseFloat(Lcm || "0");
@@ -511,7 +499,7 @@ function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const pcs = Math.max(1, parseInt(pieces || "1", 10));
 
   if(u !== "才"){
-    return { qty:null, hint:`此品項單位「${u||"-"}」不是「才」，自動模式只支援「才」，請切到手動模式。`, ok:false };
+    return { qty:null, hint:`此品項單位「${u||"-"}」不是「才」，強制自動只支援「才」。`, ok:false };
   }
   if(!(L > 0 && W > 0)){
     return { qty:0, hint:"請輸入板材長(cm)與寬(cm)，才能自動計算才數。", ok:false };
@@ -542,10 +530,6 @@ const drawerPerCabEl = document.getElementById("drawerPerCab");
 
 const boardCodeEl = document.getElementById("boardCode");
 const boardQtyEl = document.getElementById("boardQty");
-const boardMultiplyCabEl = document.getElementById("boardMultiplyCab");
-const boardAutoCalcEl = document.getElementById("boardAutoCalc");
-const boardAutoPanel = document.getElementById("boardAutoPanel");
-const boardManualPanel = document.getElementById("boardManualPanel");
 const boardAutoHintEl = document.getElementById("boardAutoHint");
 const boardLenCmEl = document.getElementById("boardLenCm");
 const boardWidCmEl = document.getElementById("boardWidCm");
@@ -632,29 +616,28 @@ function refreshDrawerOptionsByDepth(){
   else drawerCodeEl.value = prev;
 }
 
-/* 板材封板：自動/手動 UI 切換 */
-function syncBoardModeUI(){
-  const autoOn = !!boardAutoCalcEl.checked;
-  boardAutoPanel.classList.toggle("hidden", !autoOn);
-  boardManualPanel.classList.toggle("hidden", autoOn);
-
-  if(autoOn){
-    boardMultiplyCabEl.checked = false;
-    boardMultiplyCabEl.disabled = true;
-
-    // 自動模式：右側顯示總才數（唯讀）
-    boardQtyEl.step = "1";
-    boardQtyEl.readOnly = true;
-    boardQtyEl.classList.add("bg-slate-100");
-  }else{
-    boardMultiplyCabEl.disabled = false;
-
-    boardQtyEl.readOnly = false;
-    boardQtyEl.classList.remove("bg-slate-100");
-    boardQtyEl.step = "1";
-
-    if(parseInt(boardQtyEl.value || "0", 10) <= 0) boardQtyEl.value = "1";
+/* ===== 板材封板：計算並同步到 UI（強制自動） ===== */
+function refreshBoardAutoUI(){
+  const boardCode = (boardCodeEl.value || "").trim();
+  if(!boardCode){
+    boardQtyEl.value = "0";
+    boardAutoHintEl.textContent = "—";
+    return { qty:0, ok:false, hint:"—" };
   }
+
+  const row = findByCode(boardsRows, boardCode);
+  const unit = row?.unit || "";
+  const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
+
+  if(auto.qty === null){
+    boardQtyEl.value = "0";
+    boardAutoHintEl.textContent = auto.hint || "—";
+    return { qty:0, ok:false, hint:auto.hint || "—", unitNotSupported:true };
+  }
+
+  boardQtyEl.value = String(auto.qty || 0);
+  boardAutoHintEl.textContent = auto.hint || "—";
+  return { qty: auto.qty || 0, ok: !!auto.ok, hint: auto.hint || "—" };
 }
 
 /* 配件選擇與計價 */
@@ -684,7 +667,7 @@ function getAccessorySelections(cabCountTotal){
     });
   }
 
-  // 2) 板材封板：自動=長×寬→面積÷900→逐片進位→×片數（只支援「才」）
+  // 2) 板材封板：強制自動（長寬→÷900→逐片進位→×片數）
   const boardCode = (boardCodeEl.value || "").trim();
   if(boardCode){
     const row = findByCode(boardsRows, boardCode);
@@ -693,31 +676,17 @@ function getAccessorySelections(cabCountTotal){
     const name = row?.name || boardCode;
     if(!row) warnings.push(`板材封板編碼 ${boardCode} 在 boards 分頁找不到（此項以 $0 計）`);
 
+    const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
     let qty = 0;
-    let qtyMode = "手動";
+    let qtyMode = "強制自動(才)";
 
-    if(boardAutoCalcEl.checked){
-      const auto = calcBoardQtyByLenWidCaiCeil(
-        unit,
-        boardLenCmEl?.value,
-        boardWidCmEl?.value,
-        boardPiecesEl?.value
-      );
-
-      if(auto.qty === null){
-        warnings.push(auto.hint);
-        qty = Math.max(1, parseInt(boardQtyEl.value || "1", 10));
-        qtyMode = "自動不支援→改用手動數量";
-      }else{
-        qty = Math.max(0, auto.qty);
-        qtyMode = "自動(才) 逐片進位×片數";
-        boardQtyEl.value = String(qty);
-        boardAutoHintEl.textContent = auto.hint || "—";
-      }
+    if(auto.qty === null){
+      warnings.push(auto.hint);
+      qty = 0; // 強制自動：不支援就不計價（避免誤算）
+      qtyMode = "強制自動不支援（需為「才」）";
     }else{
-      const baseQty = Math.max(1, parseInt(boardQtyEl.value || "1", 10));
-      qty = boardMultiplyCabEl.checked ? Math.max(1, (cabCountTotal||0) * baseQty) : baseQty;
-      qtyMode = boardMultiplyCabEl.checked ? `櫃數×${baseQty}` : `自訂×${baseQty}`;
+      qty = Math.max(0, auto.qty);
+      qtyMode = "強制自動(才) 逐片進位×片數";
     }
 
     selections.push({
@@ -759,6 +728,9 @@ function getAccessorySelections(cabCountTotal){
 
 /* 即時計算 */
 function updateMatchAndPreview(){
+  // 先刷新板材（強制自動，不依賴櫃體尺寸）
+  const boardState = refreshBoardAutoUI();
+
   const kind = cabinetKindEl.value;
   const Hcm = parseInt(heightEl.value || "0", 10);
   const Dcm = parseInt(depthEl.value  || "0", 10);
@@ -766,25 +738,14 @@ function updateMatchAndPreview(){
   const qtySet = Math.max(1, parseInt(qtySetEl.value || "1", 10));
 
   refreshDrawerOptionsByDepth();
-  syncBoardModeUI();
 
   currentMatch = null;
   currentComputed = null;
-  boardAutoHintEl.textContent = "—";
 
   if(!(Hcm>0 && Dcm>0 && Wcm>0)){
     matchHint.textContent = "請輸入高/深/寬（cm），系統會自動匹配價目表並計價。";
     linePreview.textContent = "—";
-    setWarn("");
-    // 板材自動提示：仍可在選了板材時顯示，但不影響主流程
-    const bcode = (boardCodeEl.value || "").trim();
-    if(boardAutoCalcEl.checked && bcode){
-      const brow = findByCode(boardsRows, bcode);
-      const unit = brow?.unit || "";
-      const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
-      boardAutoHintEl.textContent = auto.hint || "—";
-      if(auto.qty !== null) boardQtyEl.value = String(auto.qty || 0);
-    }
+    setWarn(boardState.unitNotSupported ? boardState.hint : "");
     return;
   }
 
@@ -796,23 +757,13 @@ function updateMatchAndPreview(){
   if(!best){
     matchHint.textContent = "找不到可匹配的櫃體單價（請確認 cabinets 分頁資料）。";
     linePreview.textContent = "—";
-    setWarn("");
+    setWarn(boardState.unitNotSupported ? boardState.hint : "");
     return;
   }
 
   const countPerSet = calcCabinetCount(Wmm, best.widthMm);
   const countTotal  = countPerSet * qtySet;
   const baseAmount  = Math.round(best.price * countTotal);
-
-  // 板材自動提示（若選了板材且自動模式）
-  const boardCode = (boardCodeEl.value || "").trim();
-  if(boardAutoCalcEl.checked && boardCode){
-    const row = findByCode(boardsRows, boardCode);
-    const unit = row?.unit || "";
-    const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
-    boardAutoHintEl.textContent = auto.hint || "—";
-    if(auto.qty !== null) boardQtyEl.value = String(auto.qty || 0);
-  }
 
   const { selections, warnings } = getAccessorySelections(countTotal);
   const accAmount = selections.reduce((s,x)=>s+(x.amount||0),0);
@@ -841,7 +792,10 @@ function updateMatchAndPreview(){
     `<div>配件：${escapeHtml(accLine)}</div>` +
     `<div class="mt-1">本項合計：<span class="text-emerald-700">${money(totalAmount)}</span></div>`;
 
-  setWarn(warnings.length ? warnings.join("；") : "");
+  // 若板材單位不支援（不是才），也一併提示
+  const warnAll = [].concat(warnings);
+  if(boardState.unitNotSupported) warnAll.push(boardState.hint);
+  setWarn(warnAll.length ? warnAll.join("；") : "");
 }
 
 /* 加入購物車 */
@@ -1054,7 +1008,10 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   const btn = document.getElementById("fontToggleBtn");
   if(btn) btn.onclick = toggleScale;
 
-  syncBoardModeUI();
+  // boardQty 強制唯讀
+  boardQtyEl.readOnly = true;
+  boardQtyEl.classList.add("bg-slate-100");
+
   await initLiff();
 
   try{
@@ -1122,11 +1079,8 @@ ${listText}
   drawerCodeEl.onchange = updateMatchAndPreview;
   drawerPerCabEl.oninput = updateMatchAndPreview;
 
+  // 板材封板：強制自動，任何輸入變動都即時重算
   boardCodeEl.onchange = updateMatchAndPreview;
-  boardQtyEl.oninput = updateMatchAndPreview; // 手動模式才會用到
-  boardMultiplyCabEl.onchange = updateMatchAndPreview;
-
-  boardAutoCalcEl.onchange = ()=>{ syncBoardModeUI(); updateMatchAndPreview(); };
   if(boardLenCmEl) boardLenCmEl.oninput = updateMatchAndPreview;
   if(boardWidCmEl) boardWidCmEl.oninput = updateMatchAndPreview;
   if(boardPiecesEl) boardPiecesEl.oninput = updateMatchAndPreview;
