@@ -160,7 +160,6 @@
       <div class="border rounded-2xl p-3 bg-white">
         <div class="flex items-center justify-between">
           <p class="text-sm font-semibold text-slate-700">配件（可選）</p>
-          <p class="text-[11px] text-slate-500">抽屜依深度限制｜板材封板：長×寬÷900（逐片進位）×片數</p>
         </div>
 
         <div class="mt-3 space-y-3">
@@ -179,27 +178,17 @@
                   class="w-full border rounded-lg px-3 py-2 text-sm" disabled />
               </div>
             </div>
-            <p class="text-[11px] text-slate-500 mt-2">右側為「每櫃抽屜組數」。總數 = 櫃數 × 每櫃組數。</p>
           </div>
 
-          <!-- 2) 板材封板（強制自動，無勾選框） -->
+          <!-- 2) 板材封板（已移除所有說明字樣） -->
           <div class="border rounded-xl p-3 bg-slate-50">
             <p class="text-xs font-semibold text-slate-700 mb-2">2) 板材封板</p>
-
-            <!-- 注意：這裡只有文字，沒有 checkbox -->
-            <div class="flex items-center justify-between mb-2">
-              <p class="text-[11px] text-slate-700 font-semibold">
-                強制自動計算才數（長×寬÷900，逐片無條件進位）
-              </p>
-              <p class="text-[11px] text-slate-500">1才=900cm²</p>
-            </div>
 
             <div class="grid grid-cols-3 gap-2">
               <div class="col-span-2">
                 <select id="boardCode" class="w-full border rounded-lg px-3 py-2 text-sm">
                   <option value="">不需要</option>
                 </select>
-                <p class="text-[11px] text-slate-500 mt-1">右側顯示「計算後總才數（唯讀）」</p>
               </div>
               <div>
                 <input id="boardQty" type="number" value="0" readonly
@@ -225,11 +214,6 @@
                     class="w-full border rounded-lg px-2 py-1 text-sm" />
                 </div>
               </div>
-
-              <p id="boardAutoHint" class="text-[11px] text-slate-600 mt-2">—</p>
-              <p class="text-[11px] text-slate-500 mt-1">
-                每片才數 = ceil((長×寬)÷900)；總才數 = 每片才數 × 片數
-              </p>
             </div>
           </div>
 
@@ -336,9 +320,8 @@ const HARDWARES_CSV =
 /* 櫃體表：高度/深度/寬度 mm，使用者輸入 cm -> ×10 */
 const CM_TO_MM = 10;
 
-/* 1才=30cm => 1才²=900cm² */
-const CAI_CM = 30;
-const CAI2_CM2 = CAI_CM * CAI_CM; // 900
+/* 1才=30cm => 1才²=900cm²（計算用，不顯示在 UI） */
+const CAI2_CM2 = 900;
 
 /* 抽屜深度規則 */
 const DRAWER_CODES_SHALLOW = ["深61","深62","深63"]; // 深度 <= 60cm
@@ -491,7 +474,7 @@ function findBestRate(kind, inputHeightMm, inputDepthMm){
   return best;
 }
 
-/* ===== 板材封板：強制自動（長寬→面積÷900→逐片無條件進位→×片數） ===== */
+/* ===== 板材封板：長×寬→面積÷900→逐片無條件進位→×片數（UI 不顯示說明） ===== */
 function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const u = normUnit(rowUnit);
   const L = parseFloat(Lcm || "0");
@@ -499,10 +482,10 @@ function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const pcs = Math.max(1, parseInt(pieces || "1", 10));
 
   if(u !== "才"){
-    return { qty:null, hint:`此品項單位「${u||"-"}」不是「才」，板材封板強制自動只支援「才」。`, ok:false };
+    return { qty: null, ok:false };
   }
   if(!(L > 0 && W > 0)){
-    return { qty:0, hint:"請輸入板材長(cm)與寬(cm)，才能自動計算才數。", ok:false };
+    return { qty: 0, ok:false };
   }
 
   const areaCm2 = L * W;
@@ -510,12 +493,7 @@ function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const caiPerPiece = Math.ceil(caiRaw);  // 逐片進位
   const totalCai = caiPerPiece * pcs;     // ×片數
 
-  const hint =
-    `自動(才)：每片面積 ${L}×${W}=${Math.round(areaCm2)}cm²；` +
-    `${Math.round(areaCm2)}/${CAI2_CM2}=${caiRaw.toFixed(6)} → 逐片進位=${caiPerPiece}才/片；` +
-    `×${pcs}片 = ${totalCai}才`;
-
-  return { qty: totalCai, hint, ok:true };
+  return { qty: totalCai, ok:true };
 }
 
 /* ===== UI elements ===== */
@@ -530,7 +508,6 @@ const drawerPerCabEl = document.getElementById("drawerPerCab");
 
 const boardCodeEl = document.getElementById("boardCode");
 const boardQtyEl = document.getElementById("boardQty");
-const boardAutoHintEl = document.getElementById("boardAutoHint");
 const boardLenCmEl = document.getElementById("boardLenCm");
 const boardWidCmEl = document.getElementById("boardWidCm");
 const boardPiecesEl = document.getElementById("boardPieces");
@@ -616,13 +593,12 @@ function refreshDrawerOptionsByDepth(){
   else drawerCodeEl.value = prev;
 }
 
-/* ===== 板材封板：計算並同步到 UI（強制自動） ===== */
+/* 板材封板：計算並同步到 UI（不顯示說明） */
 function refreshBoardAutoUI(){
   const boardCode = (boardCodeEl.value || "").trim();
   if(!boardCode){
     boardQtyEl.value = "0";
-    boardAutoHintEl.textContent = "—";
-    return { qty:0, ok:false, hint:"—", unitNotSupported:false };
+    return { qty:0, ok:false, unitOk:true };
   }
 
   const row = findByCode(boardsRows, boardCode);
@@ -631,13 +607,11 @@ function refreshBoardAutoUI(){
 
   if(auto.qty === null){
     boardQtyEl.value = "0";
-    boardAutoHintEl.textContent = auto.hint || "—";
-    return { qty:0, ok:false, hint:auto.hint || "—", unitNotSupported:true };
+    return { qty:0, ok:false, unitOk:false };
   }
 
   boardQtyEl.value = String(auto.qty || 0);
-  boardAutoHintEl.textContent = auto.hint || "—";
-  return { qty: auto.qty || 0, ok: !!auto.ok, hint: auto.hint || "—", unitNotSupported:false };
+  return { qty: auto.qty || 0, ok: !!auto.ok, unitOk:true };
 }
 
 /* 配件選擇與計價 */
@@ -667,7 +641,7 @@ function getAccessorySelections(cabCountTotal){
     });
   }
 
-  // 2) 板材封板：強制自動（長寬→÷900→逐片進位→×片數）
+  // 2) 板材封板：依長寬與片數計算
   const boardCode = (boardCodeEl.value || "").trim();
   if(boardCode){
     const row = findByCode(boardsRows, boardCode);
@@ -677,16 +651,10 @@ function getAccessorySelections(cabCountTotal){
     if(!row) warnings.push(`板材封板編碼 ${boardCode} 在 boards 分頁找不到（此項以 $0 計）`);
 
     const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
-
-    let qty = 0;
-    let qtyMode = "強制自動(才) 逐片進位×片數";
+    const qty = (auto.qty === null) ? 0 : Math.max(0, auto.qty);
 
     if(auto.qty === null){
-      warnings.push(auto.hint);
-      qty = 0; // 強制自動：不支援就不計（避免誤算）
-      qtyMode = "強制自動不支援（需為「才」）";
-    }else{
-      qty = Math.max(0, auto.qty);
+      warnings.push("板材封板：價目表單位設定不符，已暫不計價（請檢查 boards 分頁單位欄）。");
     }
 
     selections.push({
@@ -696,7 +664,7 @@ function getAccessorySelections(cabCountTotal){
       unit,
       unitPrice,
       qty,
-      qtyMode,
+      qtyMode: "",
       amount: unitPrice * qty
     });
   }
@@ -728,7 +696,7 @@ function getAccessorySelections(cabCountTotal){
 
 /* 即時計算 */
 function updateMatchAndPreview(){
-  // 先刷新板材（強制自動、不需要 checkbox）
+  // 先刷新板材（不顯示任何說明）
   const boardState = refreshBoardAutoUI();
 
   const kind = cabinetKindEl.value;
@@ -745,7 +713,7 @@ function updateMatchAndPreview(){
   if(!(Hcm>0 && Dcm>0 && Wcm>0)){
     matchHint.textContent = "請輸入高/深/寬（cm），系統會自動匹配價目表並計價。";
     linePreview.textContent = "—";
-    setWarn(boardState.unitNotSupported ? boardState.hint : "");
+    setWarn(boardState.unitOk ? "" : "板材封板：價目表設定需檢查。");
     return;
   }
 
@@ -757,7 +725,7 @@ function updateMatchAndPreview(){
   if(!best){
     matchHint.textContent = "找不到可匹配的櫃體單價（請確認 cabinets 分頁資料）。";
     linePreview.textContent = "—";
-    setWarn(boardState.unitNotSupported ? boardState.hint : "");
+    setWarn(boardState.unitOk ? "" : "板材封板：價目表設定需檢查。");
     return;
   }
 
@@ -792,9 +760,7 @@ function updateMatchAndPreview(){
     `<div>配件：${escapeHtml(accLine)}</div>` +
     `<div class="mt-1">本項合計：<span class="text-emerald-700">${money(totalAmount)}</span></div>`;
 
-  const warnAll = [].concat(warnings);
-  if(boardState.unitNotSupported) warnAll.push(boardState.hint);
-  setWarn(warnAll.length ? warnAll.join("；") : "");
+  setWarn(warnings.length ? warnings.join("；") : "");
 }
 
 /* 加入購物車 */
@@ -845,7 +811,7 @@ function renderCart(){
             ${it.accessories.map(a=>`
               <p class="text-[11px] text-slate-600">
                 - ${escapeHtml(a.category)}：${escapeHtml(a.code)}｜${escapeHtml(a.name)}
-                ｜${money(a.unitPrice)} × ${a.qty}（${escapeHtml(a.qtyMode || "")}）= ${money(a.amount)}
+                ｜${money(a.unitPrice)} × ${a.qty} = ${money(a.amount)}
               </p>
             `).join("")}
             <p class="text-[11px] text-emerald-700 font-semibold">配件小計：${money(it.accessoryAmount || 0)}</p>
@@ -919,7 +885,7 @@ function buildPayload(){
   const itemsText = cartItems.map((it,i)=>{
     const accText = (it.accessories && it.accessories.length)
       ? it.accessories.map(a=>(
-          `   - ${a.category}：${a.code}｜${a.name}｜$${a.unitPrice}/${a.unit} × ${a.qty}（${a.qtyMode||""}）= $${(a.amount||0).toLocaleString()}`
+          `   - ${a.category}：${a.code}｜${a.name}｜$${a.unitPrice}/${a.unit} × ${a.qty} = $${(a.amount||0).toLocaleString()}`
         )).join("\n")
       : "   - 無";
 
@@ -1007,7 +973,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   const btn = document.getElementById("fontToggleBtn");
   if(btn) btn.onclick = toggleScale;
 
-  // 板材 qty 唯讀
   boardQtyEl.readOnly = true;
 
   await initLiff();
@@ -1038,13 +1003,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     const hitName = hitUrl ? (urls.find(x=>x.url===hitUrl)?.name || "未知分頁") : "未知分頁";
     const hitGid  = hitUrl ? extractGid(hitUrl) : "";
 
-    const commonHint =
-      errMsg.includes("不含表頭（編碼）") || errMsg.includes("可能未發佈或 gid 錯誤")
-        ? "你目前讀到的內容不是 CSV（通常是讀到 HTML 頁面）。最常見原因：該分頁沒有『發佈到網路』或 gid 指到錯的分頁。"
-        : errMsg.includes("CSV 讀取失敗")
-          ? "連線拿不到 CSV（可能網路/權限/暫時性錯誤）。"
-          : "請逐一檢查分頁發佈與 gid。";
-
     const listText = urls.map(x => `- ${x.name}：gid=${extractGid(x.url)}\n  ${x.url}`).join("\n\n");
 
     const guide =
@@ -1052,8 +1010,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 --------------------------------
 失敗分頁：${hitName}${hitGid ? `（gid=${hitGid}）` : ""}
 錯誤原因：${errMsg}
-
-判斷：${commonHint}
 
 請檢查：
 1) Google Sheet → 檔案 → 發佈到網路（Publish to the web）
@@ -1077,7 +1033,6 @@ ${listText}
   drawerCodeEl.onchange = updateMatchAndPreview;
   drawerPerCabEl.oninput = updateMatchAndPreview;
 
-  // 板材封板：強制自動，任何輸入變動都即時重算
   boardCodeEl.onchange = updateMatchAndPreview;
   boardLenCmEl.oninput = updateMatchAndPreview;
   boardWidCmEl.oninput = updateMatchAndPreview;
