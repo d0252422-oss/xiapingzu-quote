@@ -320,7 +320,7 @@ const HARDWARES_CSV =
 /* 櫃體表：高度/深度/寬度 mm，使用者輸入 cm -> ×10 */
 const CM_TO_MM = 10;
 
-/* 1才=30cm => 1才²=900cm²（計算用，不顯示在 UI） */
+/* 1才²=900cm²（計算用，不顯示在 UI） */
 const CAI2_CM2 = 900;
 
 /* 抽屜深度規則 */
@@ -481,12 +481,8 @@ function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const W = parseFloat(Wcm || "0");
   const pcs = Math.max(1, parseInt(pieces || "1", 10));
 
-  if(u !== "才"){
-    return { qty: null, ok:false };
-  }
-  if(!(L > 0 && W > 0)){
-    return { qty: 0, ok:false };
-  }
+  if(u !== "才") return { qty: null, ok:false };
+  if(!(L > 0 && W > 0)) return { qty: 0, ok:false };
 
   const areaCm2 = L * W;
   const caiRaw = areaCm2 / CAI2_CM2;
@@ -593,7 +589,7 @@ function refreshDrawerOptionsByDepth(){
   else drawerCodeEl.value = prev;
 }
 
-/* 板材封板：計算並同步到 UI（不顯示說明） */
+/* 板材封板：計算並同步到 UI */
 function refreshBoardAutoUI(){
   const boardCode = (boardCodeEl.value || "").trim();
   if(!boardCode){
@@ -641,7 +637,7 @@ function getAccessorySelections(cabCountTotal){
     });
   }
 
-  // 2) 板材封板：依長寬與片數計算
+  // 2) 板材封板：依長寬與片數計算（逐片進位後再×片數）
   const boardCode = (boardCodeEl.value || "").trim();
   if(boardCode){
     const row = findByCode(boardsRows, boardCode);
