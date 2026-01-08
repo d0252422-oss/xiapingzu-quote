@@ -336,7 +336,7 @@ let hardwaresRows = [];
 let cartItems = [];
 let userId = null;
 
-/* ✅ 索引（解決「明明有 A1~B3 卻找不到」） */
+/* 索引（解決抽屜抓不到名稱） */
 let drawersIndex = new Map();
 let hardwaresIndex = new Map();
 let boardsIndex = new Map();
@@ -384,7 +384,6 @@ function escapeHtml(str){
 function money(n){ return `$${(n||0).toLocaleString()}`; }
 function normUnit(u){ return String(u||"").trim(); }
 function normHeaderCell(v){ return String(v || "").replace(/^\uFEFF/, "").trim(); }
-/* ✅ normalize：移除空白、全形空白、不可見字元 */
 function normKey(v){
   return String(v || "")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")  /* zero-width */
@@ -401,7 +400,6 @@ function getSelectText(sel){
     return "";
   }
 }
-
 function extractGid(url){
   try{
     const u = new URL(url);
@@ -411,7 +409,6 @@ function extractGid(url){
     return m ? m[1] : "";
   }
 }
-
 async function fetchCsv(url){
   const res = await fetch(url + "&rand=" + Math.random());
   if(!res.ok) throw new Error("CSV 讀取失敗：" + url);
@@ -482,7 +479,7 @@ async function loadSimpleTabFromUrl(url){
   }).filter(x => x.code && x.price >= 0);
 }
 
-/* ✅ 建索引（Map） */
+/* build index */
 function buildIndex(rows){
   const m = new Map();
   (rows || []).forEach(r=>{
@@ -494,13 +491,25 @@ function buildIndex(rows){
 function findByCode(indexMap, rows, code){
   const k = normKey(code);
   if(k && indexMap?.has(k)) return indexMap.get(k) || null;
-  // fallback：用 rows 再找一次（保險）
   return (rows || []).find(r => normKey(r.code) === k) || null;
 }
-function findByName(rows, name){
-  const k = normKey(name);
+
+/* ✅ 抽屜專用查找：多重 fallback，確保拿得到名稱 */
+function getDrawerRowByCode(code){
+  const k = normKey(code);
   if(!k) return null;
-  return (rows || []).find(r => normKey(r.name) === k) || null;
+
+  // 1) Index 直接命中
+  let row = drawersIndex.get(k) || null;
+  if(row) return row;
+
+  // 2) rows 精準比對
+  row = (drawersRows || []).find(r => normKey(r.code) === k) || null;
+  if(row) return row;
+
+  // 3) rows 模糊比對（處理不可見字元卡在 code 中）
+  row = (drawersRows || []).find(r => normKey(r.code).includes(k) || k.includes(normKey(r.code))) || null;
+  return row;
 }
 
 /* cabinet count */
@@ -532,7 +541,7 @@ function findBestRate(kind, inputHeightMm, inputDepthMm){
   return best;
 }
 
-/* ===== 板材封板：長×寬→面積÷900→逐片無條件進位→×片數 ===== */
+/* ===== 板材封板 ===== */
 function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const u = normUnit(rowUnit);
   const L = parseFloat(Lcm || "0");
@@ -593,11 +602,10 @@ function setWarn(msg){
   }
 }
 
-/* ✅ 顯示：抽屜/五金永遠只顯示名稱 */
+/* 顯示：抽屜/五金只顯示名稱 */
 function accDisplayName(a){
   if(a.category === "抽屜") return a.name || "";
   if(a.category === "五金") return a.name || "";
-  // 其他照舊（板材封板仍顯示編碼+名稱）
   return `${a.code}｜${a.name}`;
 }
 
@@ -646,23 +654,21 @@ function refreshDrawerOptionsByDepth(){
 
   const prev = drawerCodeEl.value;
 
-  // 用 drawersIndex 找到對應 row，確保 value 是「實際編碼」
   const opts = allowCodes.map(code=>{
-    const row = findByCode(drawersIndex, drawersRows, code);
+    const row = getDrawerRowByCode(code);
     const name = (row?.name || "").trim();
+    // ✅ 一定顯示名稱；萬一真的抓不到，用「（名稱缺失）」提示，避免你只看到編碼
     return {
       code,
-      name: name || code,     // 找不到仍顯示 code 以便你定位資料
-      ok: !!row
+      text: name ? name : "（名稱缺失，請檢查 drawers 名稱欄）",
     };
   });
 
   drawerCodeEl.innerHTML =
     [`<option value="">不需要</option>`].concat(
-      opts.map(o => `<option value="${escapeHtml(o.code)}">${escapeHtml(o.name)}</option>`)
+      opts.map(o => `<option value="${escapeHtml(o.code)}">${escapeHtml(o.text)}</option>`)
     ).join("");
 
-  // 保留先前選擇（若仍在允許清單）
   const exists = allowCodes.map(normKey).includes(normKey(prev));
   drawerCodeEl.value = exists ? prev : "";
 }
@@ -688,7 +694,7 @@ function refreshBoardAutoUI(){
   return { qty: auto.qty || 0, ok: !!auto.ok, unitOk:true };
 }
 
-/* ✅ 配件選擇與計價（抽屜/五金：不乘櫃數） */
+/* 配件選擇與計價（抽屜/五金：不乘櫃數） */
 function getAccessorySelections(){
   const selections = [];
   const warnings = [];
@@ -697,15 +703,7 @@ function getAccessorySelections(){
   const drawerCode = (drawerCodeEl.value || "").trim();
   if(drawerCode){
     const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
-
-    // 先用 code 查
-    let row = findByCode(drawersIndex, drawersRows, drawerCode);
-
-    // ✅ 備援：若因任何原因 value 不是 code，就用顯示文字（名稱）再找一次
-    if(!row){
-      const shownName = getSelectText(drawerCodeEl);
-      row = findByName(drawersRows, shownName);
-    }
+    const row = getDrawerRowByCode(drawerCode);
 
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "組";
