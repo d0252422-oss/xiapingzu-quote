@@ -174,14 +174,13 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] text-slate-600 mb-1">抽屜數量</label>
-                <input id="drawerQty" type="number" min="1" step="1" value="1"
+                <input id="drawerPerCab" type="number" min="1" step="1" value="1"
                   class="w-full border rounded-lg px-3 py-2 text-sm" disabled />
               </div>
             </div>
           </div>
 
-          <!-- 2) 板材封板 -->
+          <!-- 2) 板材封板（已移除所有說明字樣） -->
           <div class="border rounded-xl p-3 bg-slate-50">
             <p class="text-xs font-semibold text-slate-700 mb-2">2) 板材封板</p>
 
@@ -228,12 +227,14 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] text-slate-600 mb-1">五金數量</label>
                 <input id="hardwareQty" type="number" min="1" step="1" value="1"
                   class="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
-            <p class="text-[11px] text-slate-600 mt-2">五金以右側輸入數量計價（不乘櫃數）</p>
+            <div class="flex items-center gap-2 mt-2">
+              <input id="hardwareMultiplyCab" type="checkbox" class="h-4 w-4" checked>
+              <label for="hardwareMultiplyCab" class="text-[11px] text-slate-600">數量要乘櫃數（總數 = 櫃數 × 右側數量）</label>
+            </div>
           </div>
 
           <p id="accWarn" class="hidden text-[11px] text-red-600"></p>
@@ -319,15 +320,12 @@ const HARDWARES_CSV =
 /* 櫃體表：高度/深度/寬度 mm，使用者輸入 cm -> ×10 */
 const CM_TO_MM = 10;
 
-/* 1才²=900cm² */
+/* 1才=30cm => 1才²=900cm²（計算用，不顯示在 UI） */
 const CAI2_CM2 = 900;
 
-/* 抽屜規則：深度<=60 → A1/A2/A3；深度>60 → B1/B2/B3 */
-const DRAWER_CODES_SHALLOW = ["A1","A2","A3"];
-const DRAWER_CODES_DEEP    = ["B1","B2","B3"];
-
-/* 五金只允許這三個 */
-const HARDWARE_ALLOW_CODES = ["Z03","Z04","Z05"];
+/* 抽屜深度規則（修正：對應你的 Sheet 編碼 A1~B3） */
+const DRAWER_CODES_SHALLOW = ["A1","A2","A3"]; // 深度 <= 60cm
+const DRAWER_CODES_DEEP    = ["B1","B2","B3"]; // 深度 > 60cm
 
 let cabinetRows = [];
 let drawersRows = [];
@@ -335,10 +333,6 @@ let boardsRows = [];
 let hardwaresRows = [];
 let cartItems = [];
 let userId = null;
-
-let drawersIndex = new Map();
-let hardwaresIndex = new Map();
-let boardsIndex = new Map();
 
 /* ===== 字體切換（1.25x / 2x）===== */
 const SCALE_SMALL = 1.25;
@@ -366,6 +360,12 @@ function toggleScale(){
 }
 
 /* utils */
+function parseCSV(text){
+  const quotes=/^"|"$/g;
+  return text.trim().split("\n").filter(Boolean).map(r =>
+    r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,"").trim())
+  );
+}
 function escapeHtml(str){
   return String(str || "")
     .replaceAll("&","&amp;")
@@ -376,84 +376,6 @@ function escapeHtml(str){
 }
 function money(n){ return `$${(n||0).toLocaleString()}`; }
 function normUnit(u){ return String(u||"").trim(); }
-function normHeaderCell(v){ return String(v || "").replace(/^\uFEFF/, "").trim(); }
-
-/* ✅ 支援 CSV + TSV（你貼出的內容是 Tab 分隔） */
-function splitDelimitedLine(line, delim){
-  const out = [];
-  let cur = "";
-  let inQ = false;
-
-  for(let i=0;i<line.length;i++){
-    const ch = line[i];
-    if(ch === '"'){
-      if(inQ && line[i+1] === '"'){ cur += '"'; i++; continue; }
-      inQ = !inQ;
-      continue;
-    }
-    if(!inQ && ch === delim){
-      out.push(cur.trim());
-      cur = "";
-      continue;
-    }
-    cur += ch;
-  }
-  out.push(cur.trim());
-  return out;
-}
-function parseCSV(text){
-  const raw = String(text || "")
-    .replace(/^\uFEFF/, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .trim();
-
-  if(!raw) return [];
-
-  const lines = raw.split("\n").filter(l => l.trim().length);
-  const head = lines[0];
-
-  const tabCount = (head.match(/\t/g) || []).length;
-  const commaCount = (head.match(/,/g) || []).length;
-  const delim = tabCount > commaCount ? "\t" : ",";
-
-  return lines.map(line => splitDelimitedLine(line, delim));
-}
-
-/* ✅ 更耐髒的 code 正規化（全形→半形、去不可見字元） */
-function toHalfWidth(str){
-  return String(str || "").replace(/[\uFF01-\uFF5E]/g, ch =>
-    String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)
-  );
-}
-function normKey(v){
-  return toHalfWidth(String(v || ""))
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .replace(/\u00A0/g, " ")
-    .replace(/\u3000/g, " ")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-}
-
-function getSelectText(sel){
-  try{
-    const opt = sel?.options?.[sel.selectedIndex];
-    return (opt?.text || "").trim();
-  }catch(e){
-    return "";
-  }
-}
-
-/* 抽屜下拉顯示：A1｜名稱 → 拆出 code/name */
-function parseCodeNameFromOptionText(text){
-  const t = String(text || "").trim();
-  const parts = t.split("｜").map(x=>x.trim()).filter(Boolean);
-  if(parts.length >= 2){
-    return { code: parts[0], name: parts.slice(1).join("｜") };
-  }
-  return { code: "", name: t };
-}
 
 function extractGid(url){
   try{
@@ -467,9 +389,9 @@ function extractGid(url){
 
 async function fetchCsv(url){
   const res = await fetch(url + "&rand=" + Math.random());
-  if(!res.ok) throw new Error("CSV/TSV 讀取失敗：" + url);
+  if(!res.ok) throw new Error("CSV 讀取失敗：" + url);
   const text = await res.text();
-  if(!text.includes("編碼")) throw new Error("內容不含表頭（編碼），可能未發佈或 gid 錯誤：" + url);
+  if(!text.includes("編碼")) throw new Error("CSV 內容不含表頭（編碼），可能未發佈或 gid 錯誤：" + url);
   return text;
 }
 
@@ -477,7 +399,7 @@ async function fetchCsv(url){
 async function loadCabinets(){
   const text = await fetchCsv(CABINETS_CSV);
   const rows = parseCSV(text);
-  const header = (rows[0] || []).map(normHeaderCell);
+  const header = rows[0];
 
   const idxCode  = header.indexOf("編碼");
   const idxName  = header.indexOf("名稱");
@@ -487,31 +409,25 @@ async function loadCabinets(){
   const idxPrice = header.indexOf("單價");
   const idxType  = header.indexOf("類型");
 
-  if(idxCode<0||idxName<0||idxH<0||idxD<0||idxW<0||idxPrice<0||idxType<0){
-    throw new Error(`cabinets 表頭欄位缺失：${header.join("｜")}`);
-  }
-
   cabinetRows = rows.slice(1).map(r => {
-    const code = normHeaderCell(r[idxCode]);
-    const name = normHeaderCell(r[idxName]);
-    const heightMm = parseInt(String(r[idxH] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const depthMm  = parseInt(String(r[idxD] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const widthMm  = parseInt(String(r[idxW] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const price = parseInt(String(r[idxPrice] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const type  = normHeaderCell(r[idxType]);
+    const code = (r[idxCode] || "").trim();
+    const name = (r[idxName] || "").trim();
+    const heightMm = parseInt((r[idxH] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const depthMm  = parseInt((r[idxD] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const widthMm  = parseInt((r[idxW] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
+    const type  = (r[idxType] || "").trim();
     return { code, name, heightMm, depthMm, widthMm, price, type };
   }).filter(x =>
     x.code && x.type === "櫃體" && x.price > 0 && x.heightMm > 0 && x.depthMm > 0 && x.widthMm > 0
   );
 }
 
-/* load simple tab (drawers/boards/hardwares) */
+/* load simple tab */
 async function loadSimpleTabFromUrl(url){
   const text = await fetchCsv(url);
   const rows = parseCSV(text);
-  if(!rows.length) throw new Error("內容為空：" + url);
-
-  const header = (rows[0] || []).map(normHeaderCell);
+  const header = rows[0];
 
   const idxCode  = header.indexOf("編碼");
   const idxName  = header.indexOf("名稱");
@@ -519,68 +435,14 @@ async function loadSimpleTabFromUrl(url){
   const idxPrice = header.indexOf("單價");
   const idxType  = header.indexOf("類型");
 
-  if(idxCode < 0 || idxName < 0 || idxUnit < 0 || idxPrice < 0 || idxType < 0){
-    throw new Error(
-      `表頭欄位缺失（需：編碼/名稱/單位/單價/類型），目前：${header.join("｜")}，URL：${url}`
-    );
-  }
-
   return rows.slice(1).map(r => {
-    const code = normHeaderCell(r[idxCode]);
-    const name = normHeaderCell(r[idxName]);
-    const unit = normHeaderCell(r[idxUnit]);
-    const price = parseInt(String(r[idxPrice] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const type = normHeaderCell(r[idxType]);
+    const code = (r[idxCode] || "").trim();
+    const name = (r[idxName] || "").trim();
+    const unit = (r[idxUnit] || "").trim();
+    const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
+    const type = (r[idxType] || "").trim();
     return { code, name, unit, price, type };
   }).filter(x => x.code && x.price >= 0);
-}
-
-/* build index */
-function buildIndex(rows){
-  const m = new Map();
-  (rows || []).forEach(r=>{
-    const k = normKey(r.code);
-    if(k) m.set(k, r);
-  });
-  return m;
-}
-function findByCode(indexMap, rows, code){
-  const k = normKey(code);
-  if(k && indexMap?.has(k)) return indexMap.get(k) || null;
-  return (rows || []).find(r => normKey(r.code) === k) || null;
-}
-
-/* ✅ 抽屜：先 code 找；找不到再用名稱找；再從 "B1｜xxx" 拆 code 重找 */
-function getDrawerRowByCodeOrName(code, nameCandidate){
-  const k = normKey(code);
-  if(k){
-    const row =
-      drawersIndex.get(k) ||
-      (drawersRows || []).find(r => normKey(r.code) === k) ||
-      null;
-    if(row) return row;
-  }
-
-  const name = String(nameCandidate || "").trim();
-  if(name){
-    const row2 = (drawersRows || []).find(r => String(r.name || "").trim() === name) || null;
-    if(row2) return row2;
-  }
-
-  const s = String(code || "").trim();
-  if(s.includes("｜")){
-    const maybeCode = s.split("｜")[0].trim();
-    const k2 = normKey(maybeCode);
-    if(k2){
-      const row3 =
-        drawersIndex.get(k2) ||
-        (drawersRows || []).find(r => normKey(r.code) === k2) ||
-        null;
-      if(row3) return row3;
-    }
-  }
-
-  return null;
 }
 
 /* cabinet count */
@@ -612,7 +474,7 @@ function findBestRate(kind, inputHeightMm, inputDepthMm){
   return best;
 }
 
-/* 板材封板 */
+/* ===== 板材封板：長×寬→面積÷900→逐片無條件進位→×片數 ===== */
 function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const u = normUnit(rowUnit);
   const L = parseFloat(Lcm || "0");
@@ -624,9 +486,8 @@ function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
 
   const areaCm2 = L * W;
   const caiRaw = areaCm2 / CAI2_CM2;
-  const caiPerPiece = Math.ceil(caiRaw);
-  const totalCai = caiPerPiece * pcs;
-
+  const caiPerPiece = Math.ceil(caiRaw);  // 逐片進位
+  const totalCai = caiPerPiece * pcs;     // ×片數
   return { qty: totalCai, ok:true };
 }
 
@@ -638,7 +499,7 @@ const widthEl  = document.getElementById("widthCm");
 const qtySetEl = document.getElementById("qtySet");
 
 const drawerCodeEl = document.getElementById("drawerCode");
-const drawerQtyEl = document.getElementById("drawerQty");
+const drawerPerCabEl = document.getElementById("drawerPerCab");
 
 const boardCodeEl = document.getElementById("boardCode");
 const boardQtyEl = document.getElementById("boardQty");
@@ -648,6 +509,7 @@ const boardPiecesEl = document.getElementById("boardPieces");
 
 const hardwareCodeEl = document.getElementById("hardwareCode");
 const hardwareQtyEl = document.getElementById("hardwareQty");
+const hardwareMultiplyCabEl = document.getElementById("hardwareMultiplyCab");
 
 const loadStatus = document.getElementById("loadStatus");
 const matchHint = document.getElementById("matchHint");
@@ -672,15 +534,11 @@ function setWarn(msg){
     accWarn.textContent = "";
   }
 }
-
-/* 預覽/購物車/送出文字：抽屜 & 五金只顯示「名稱」 */
-function accDisplayName(a){
-  if(a.category === "抽屜") return a.name || "";
-  if(a.category === "五金") return a.name || "";
-  return `${a.code}｜${a.name}`;
+function findByCode(rows, code){
+  return rows.find(x => (x.code || "").trim() === (code || "").trim()) || null;
 }
 
-/* boards 下拉 */
+/* boards/hardwares 下拉填入 */
 function fillBoardsSelect(){
   boardCodeEl.innerHTML =
     `<option value="">不需要</option>` +
@@ -688,32 +546,21 @@ function fillBoardsSelect(){
       `<option value="${escapeHtml(x.code)}">${escapeHtml(x.code)}｜${escapeHtml(x.name)}｜${money(x.price)} / ${escapeHtml(x.unit||"")}</option>`
     ).join("");
 }
-
-/* 五金下拉：只顯示名稱，且只允許 Z03/Z04/Z05 */
 function fillHardwaresSelect(){
-  const allowSet = new Set(HARDWARE_ALLOW_CODES.map(x => normKey(x)));
-  const options = (hardwaresRows || [])
-    .filter(x => (x.price || 0) > 0)
-    .filter(x => allowSet.has(normKey(x.code)))
-    .map(x => {
-      const name = (x.name || "").trim() || "五金";
-      const unit = (x.unit || "").trim();
-      return `<option value="${escapeHtml(x.code)}">${escapeHtml(name)}｜${money(x.price)} / ${escapeHtml(unit)}</option>`;
-    });
-
-  hardwareCodeEl.innerHTML = `<option value="">不需要</option>` + options.join("");
-
-  const cur = normKey(hardwareCodeEl.value || "");
-  if(cur && !allowSet.has(cur)) hardwareCodeEl.value = "";
+  hardwareCodeEl.innerHTML =
+    `<option value="">不需要</option>` +
+    hardwaresRows.filter(x=>x.price>0).map(x =>
+      `<option value="${escapeHtml(x.code)}">${escapeHtml(x.code)}｜${escapeHtml(x.name)}｜${money(x.price)} / ${escapeHtml(x.unit||"")}（${escapeHtml(x.type||"")}）</option>`
+    ).join("");
 }
 
-/* ✅ 抽屜：依深度顯示 A 或 B；下拉顯示「編碼｜名稱」 */
+/* 抽屜依深度限制（修正：用 A1~B3，並且確保名稱正確帶入） */
 function refreshDrawerOptionsByDepth(){
   const Dcm = parseInt(depthEl.value || "0", 10);
 
   if(!(Dcm > 0)){
     drawerCodeEl.disabled = true;
-    drawerQtyEl.disabled = true;
+    drawerPerCabEl.disabled = true;
     drawerCodeEl.innerHTML = `<option value="">請先輸入深度</option>`;
     drawerCodeEl.value = "";
     return;
@@ -722,21 +569,23 @@ function refreshDrawerOptionsByDepth(){
   const allowCodes = (Dcm > 60) ? DRAWER_CODES_DEEP : DRAWER_CODES_SHALLOW;
 
   drawerCodeEl.disabled = false;
-  drawerQtyEl.disabled = false;
+  drawerPerCabEl.disabled = false;
 
   const prev = drawerCodeEl.value;
 
-  const opts = allowCodes.map(code=>{
-    const row = getDrawerRowByCodeOrName(code, "");
-    const name = String(row?.name || "").trim();
-    const label = name ? `${code}｜${name}` : `${code}｜（名稱缺失，請檢查 drawers 名稱欄）`;
-    return `<option value="${escapeHtml(code)}">${escapeHtml(label)}</option>`;
-  });
+  drawerCodeEl.innerHTML =
+    [`<option value="">不需要</option>`].concat(
+      allowCodes.map(code=>{
+        const row = findByCode(drawersRows, code);
+        const name = (row && row.name) ? row.name : "（表內找不到名稱）";
+        const price = row?.price || 0;
+        const unit = row?.unit || "";
+        return `<option value="${escapeHtml(code)}">${escapeHtml(code)}｜${escapeHtml(name)}｜${money(price)} / ${escapeHtml(unit)}</option>`;
+      })
+    ).join("");
 
-  drawerCodeEl.innerHTML = [`<option value="">不需要</option>`].concat(opts).join("");
-
-  const exists = allowCodes.map(normKey).includes(normKey(prev));
-  drawerCodeEl.value = exists ? prev : "";
+  if(prev && !allowCodes.includes(prev)) drawerCodeEl.value = "";
+  else drawerCodeEl.value = prev;
 }
 
 /* 板材封板：計算並同步到 UI */
@@ -747,7 +596,7 @@ function refreshBoardAutoUI(){
     return { qty:0, ok:false, unitOk:true };
   }
 
-  const row = findByCode(boardsIndex, boardsRows, boardCode);
+  const row = findByCode(boardsRows, boardCode);
   const unit = row?.unit || "";
   const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
 
@@ -760,52 +609,41 @@ function refreshBoardAutoUI(){
   return { qty: auto.qty || 0, ok: !!auto.ok, unitOk:true };
 }
 
-/* 配件選擇與計價（抽屜/五金：不乘櫃數） */
-function getAccessorySelections(){
+/* 配件選擇與計價 */
+function getAccessorySelections(cabCountTotal){
   const selections = [];
   const warnings = [];
 
-  // 1) 抽屜：單價 × 你輸入的抽屜數量
+  // 1) 抽屜：總數 = 櫃數 × 每櫃
   const drawerCode = (drawerCodeEl.value || "").trim();
   if(drawerCode){
-    const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
-
-    const optionText = getSelectText(drawerCodeEl);           // 例如：B1｜木抽90以下(...)
-    const parsed = parseCodeNameFromOptionText(optionText);
-    const codeFromText = parsed.code || drawerCode;
-    const nameFromText = parsed.name || "";
-
-    let row = getDrawerRowByCodeOrName(drawerCode, nameFromText);
-    if(!row) row = getDrawerRowByCodeOrName(codeFromText, nameFromText);
-
+    const perCab = Math.max(1, parseInt(drawerPerCabEl.value || "1", 10));
+    const qty = Math.max(1, (cabCountTotal || 0) * perCab);
+    const row = findByCode(drawersRows, drawerCode);
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "組";
-    const name = String(row?.name || "").trim() || nameFromText || "抽屜";
-
-    if(!row){
-      warnings.push(`抽屜：drawers 分頁找不到對應資料（選擇=${drawerCode} / 解析=${codeFromText}，此項以 $0 計）`);
-    }
-
+    const name = row?.name || drawerCode;
+    if(!row) warnings.push(`抽屜編碼 ${drawerCode} 在 drawers 分頁找不到（此項以 $0 計）`);
     selections.push({
       category: "抽屜",
-      code: row?.code || codeFromText || drawerCode,
+      code: drawerCode,
       name,
       unit,
       unitPrice,
       qty,
-      qtyMode: `自訂×${qty}`,
+      qtyMode: `櫃數×${perCab}`,
       amount: unitPrice * qty
     });
   }
 
-  // 2) 板材封板
+  // 2) 板材封板：依長寬與片數計算
   const boardCode = (boardCodeEl.value || "").trim();
   if(boardCode){
-    const row = findByCode(boardsIndex, boardsRows, boardCode);
+    const row = findByCode(boardsRows, boardCode);
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "";
     const name = row?.name || boardCode;
-    if(!row) warnings.push(`板材封板：在 boards 分頁找不到對應資料（此項以 $0 計）`);
+    if(!row) warnings.push(`板材封板編碼 ${boardCode} 在 boards 分頁找不到（此項以 $0 計）`);
 
     const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
     const qty = (auto.qty === null) ? 0 : Math.max(0, auto.qty);
@@ -816,7 +654,7 @@ function getAccessorySelections(){
 
     selections.push({
       category: "板材封板",
-      code: row?.code || boardCode,
+      code: boardCode,
       name,
       unit,
       unitPrice,
@@ -826,25 +664,24 @@ function getAccessorySelections(){
     });
   }
 
-  // 3) 五金：單價 × 你輸入的數量
+  // 3) 五金：可乘櫃數
   const hwCode = (hardwareCodeEl.value || "").trim();
   if(hwCode){
-    const qty = Math.max(1, parseInt(hardwareQtyEl.value || "1", 10));
-    const row = findByCode(hardwaresIndex, hardwaresRows, hwCode);
-
+    const baseQty = Math.max(1, parseInt(hardwareQtyEl.value || "1", 10));
+    const qty = hardwareMultiplyCabEl.checked ? Math.max(1, (cabCountTotal||0) * baseQty) : baseQty;
+    const row = findByCode(hardwaresRows, hwCode);
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "";
-    const name = String(row?.name || "").trim() || "五金";
-    if(!row) warnings.push("五金在 hardwares 分頁找不到對應資料（此項以 $0 計）");
-
+    const name = row?.name || hwCode;
+    if(!row) warnings.push(`五金編碼 ${hwCode} 在 hardwares 分頁找不到（此項以 $0 計）`);
     selections.push({
       category: "五金",
-      code: row?.code || hwCode,
+      code: hwCode,
       name,
       unit,
       unitPrice,
       qty,
-      qtyMode: `自訂×${qty}`,
+      qtyMode: hardwareMultiplyCabEl.checked ? `櫃數×${baseQty}` : `自訂×${baseQty}`,
       amount: unitPrice * qty
     });
   }
@@ -854,6 +691,7 @@ function getAccessorySelections(){
 
 /* 即時計算 */
 function updateMatchAndPreview(){
+  // 先刷新板材
   const boardState = refreshBoardAutoUI();
 
   const kind = cabinetKindEl.value;
@@ -890,7 +728,7 @@ function updateMatchAndPreview(){
   const countTotal  = countPerSet * qtySet;
   const baseAmount  = Math.round(best.price * countTotal);
 
-  const { selections, warnings } = getAccessorySelections();
+  const { selections, warnings } = getAccessorySelections(countTotal);
   const accAmount = selections.reduce((s,x)=>s+(x.amount||0),0);
   const totalAmount = baseAmount + accAmount;
 
@@ -908,7 +746,7 @@ function updateMatchAndPreview(){
     `已匹配：${kind}｜高 ${(best.heightMm/10).toFixed(0)} / 深 ${(best.depthMm/10).toFixed(0)} / 寬 ${(best.widthMm/10).toFixed(0)}（來源：[${best.code}]）`;
 
   const accLine = selections.length
-    ? selections.map(a=>`${a.category} ${accDisplayName(a)} ${money(a.unitPrice)}×${a.qty}=${money(a.amount)}`).join("；")
+    ? selections.map(a=>`${a.category} ${a.code} ${money(a.unitPrice)}×${a.qty}=${money(a.amount)}`).join("；")
     : "無";
 
   linePreview.innerHTML =
@@ -967,7 +805,7 @@ function renderCart(){
           <div class="mt-1 space-y-1">
             ${it.accessories.map(a=>`
               <p class="text-[11px] text-slate-600">
-                - ${escapeHtml(a.category)}：${escapeHtml(accDisplayName(a))}
+                - ${escapeHtml(a.category)}：${escapeHtml(a.code)}｜${escapeHtml(a.name)}
                 ｜${money(a.unitPrice)} × ${a.qty} = ${money(a.amount)}
               </p>
             `).join("")}
@@ -1042,7 +880,7 @@ function buildPayload(){
   const itemsText = cartItems.map((it,i)=>{
     const accText = (it.accessories && it.accessories.length)
       ? it.accessories.map(a=>(
-          `   - ${a.category}：${accDisplayName(a)}｜$${a.unitPrice}/${a.unit} × ${a.qty} = $${(a.amount||0).toLocaleString()}`
+          `   - ${a.category}：${a.code}｜${a.name}｜$${a.unitPrice}/${a.unit} × ${a.qty} = $${(a.amount||0).toLocaleString()}`
         )).join("\n")
       : "   - 無";
 
@@ -1136,14 +974,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 
   try{
     await loadCabinets();
-
-    drawersRows   = await loadSimpleTabFromUrl(DRAWERS_CSV);
-    boardsRows    = await loadSimpleTabFromUrl(BOARDS_CSV);
+    drawersRows = await loadSimpleTabFromUrl(DRAWERS_CSV);
+    boardsRows = await loadSimpleTabFromUrl(BOARDS_CSV);
     hardwaresRows = await loadSimpleTabFromUrl(HARDWARES_CSV);
-
-    drawersIndex   = buildIndex(drawersRows);
-    boardsIndex    = buildIndex(boardsRows);
-    hardwaresIndex = buildIndex(hardwaresRows);
 
     fillBoardsSelect();
     fillHardwaresSelect();
@@ -1176,9 +1009,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 請檢查：
 1) Google Sheet → 檔案 → 發佈到網路（Publish to the web）
 2) gid 是否對到正確分頁（切到分頁後看網址列 gid）
-3) 直接打開下方 URL 是否能看到純文字（逗號或 Tab 分隔）
+3) 直接打開下方 URL 是否能看到純 CSV 文字（逗號分隔）
 
-目前系統設定的 4 個來源：
+目前系統設定的 4 個 CSV：
 ${listText}
 `;
 
@@ -1193,7 +1026,7 @@ ${listText}
   qtySetEl.oninput = updateMatchAndPreview;
 
   drawerCodeEl.onchange = updateMatchAndPreview;
-  drawerQtyEl.oninput = updateMatchAndPreview;
+  drawerPerCabEl.oninput = updateMatchAndPreview;
 
   boardCodeEl.onchange = updateMatchAndPreview;
   boardLenCmEl.oninput = updateMatchAndPreview;
@@ -1202,6 +1035,7 @@ ${listText}
 
   hardwareCodeEl.onchange = updateMatchAndPreview;
   hardwareQtyEl.oninput = updateMatchAndPreview;
+  hardwareMultiplyCabEl.onchange = updateMatchAndPreview;
 
   document.getElementById("sendBtn").onclick = sendToMake;
 
