@@ -322,11 +322,11 @@ const CM_TO_MM = 10;
 /* 1才²=900cm² */
 const CAI2_CM2 = 900;
 
-/* ✅ 抽屜規則（依你指定）：深度<=60 → A1/A2/A3；深度>60 → B1/B2/B3 */
+/* 抽屜規則：深度<=60 → A1/A2/A3；深度>60 → B1/B2/B3 */
 const DRAWER_CODES_SHALLOW = ["A1","A2","A3"];
 const DRAWER_CODES_DEEP    = ["B1","B2","B3"];
 
-/* 五金只允許這三個（前台只顯示名稱、不顯示編碼） */
+/* 五金只允許這三個 */
 const HARDWARE_ALLOW_CODES = ["Z03","Z04","Z05"];
 
 let cabinetRows = [];
@@ -335,6 +335,11 @@ let boardsRows = [];
 let hardwaresRows = [];
 let cartItems = [];
 let userId = null;
+
+/* ✅ 索引（解決「明明有 A1~B3 卻找不到」） */
+let drawersIndex = new Map();
+let hardwaresIndex = new Map();
+let boardsIndex = new Map();
 
 /* ===== 字體切換（1.25x / 2x）===== */
 const SCALE_SMALL = 1.25;
@@ -379,11 +384,22 @@ function escapeHtml(str){
 function money(n){ return `$${(n||0).toLocaleString()}`; }
 function normUnit(u){ return String(u||"").trim(); }
 function normHeaderCell(v){ return String(v || "").replace(/^\uFEFF/, "").trim(); }
+/* ✅ normalize：移除空白、全形空白、不可見字元 */
 function normKey(v){
   return String(v || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")  /* zero-width */
     .replace(/\u3000/g, " ")
     .replace(/\s+/g, "")
-    .trim();
+    .trim()
+    .toUpperCase();
+}
+function getSelectText(sel){
+  try{
+    const opt = sel?.options?.[sel.selectedIndex];
+    return (opt?.text || "").trim();
+  }catch(e){
+    return "";
+  }
 }
 
 function extractGid(url){
@@ -466,14 +482,25 @@ async function loadSimpleTabFromUrl(url){
   }).filter(x => x.code && x.price >= 0);
 }
 
-/* ✅ 先用 code 找，不到再用 name 找（備援） */
-function findRowByCodeOrName(rows, codeOrName){
-  const key = normKey(codeOrName);
-  if(!key) return null;
-  let hit = (rows || []).find(r => normKey(r.code) === key) || null;
-  if(hit) return hit;
-  hit = (rows || []).find(r => normKey(r.name) === key) || null;
-  return hit;
+/* ✅ 建索引（Map） */
+function buildIndex(rows){
+  const m = new Map();
+  (rows || []).forEach(r=>{
+    const k = normKey(r.code);
+    if(k) m.set(k, r);
+  });
+  return m;
+}
+function findByCode(indexMap, rows, code){
+  const k = normKey(code);
+  if(k && indexMap?.has(k)) return indexMap.get(k) || null;
+  // fallback：用 rows 再找一次（保險）
+  return (rows || []).find(r => normKey(r.code) === k) || null;
+}
+function findByName(rows, name){
+  const k = normKey(name);
+  if(!k) return null;
+  return (rows || []).find(r => normKey(r.name) === k) || null;
 }
 
 /* cabinet count */
@@ -566,10 +593,11 @@ function setWarn(msg){
   }
 }
 
-/* ✅ 對外顯示：抽屜/五金不顯示編碼 */
+/* ✅ 顯示：抽屜/五金永遠只顯示名稱 */
 function accDisplayName(a){
   if(a.category === "抽屜") return a.name || "";
   if(a.category === "五金") return a.name || "";
+  // 其他照舊（板材封板仍顯示編碼+名稱）
   return `${a.code}｜${a.name}`;
 }
 
@@ -582,12 +610,12 @@ function fillBoardsSelect(){
     ).join("");
 }
 
-/* 五金下拉：只顯示名稱，且只允許 Z03/Z04/Z05 三筆 */
+/* 五金下拉：只顯示名稱，且只允許 Z03/Z04/Z05 */
 function fillHardwaresSelect(){
-  const allowSet = new Set(HARDWARE_ALLOW_CODES.map(x => String(x).trim()));
+  const allowSet = new Set(HARDWARE_ALLOW_CODES.map(x => normKey(x)));
   const options = (hardwaresRows || [])
     .filter(x => (x.price || 0) > 0)
-    .filter(x => allowSet.has(String(x.code || "").trim()))
+    .filter(x => allowSet.has(normKey(x.code)))
     .map(x => {
       const name = (x.name || "").trim() || "五金";
       const unit = (x.unit || "").trim();
@@ -596,12 +624,11 @@ function fillHardwaresSelect(){
 
   hardwareCodeEl.innerHTML = `<option value="">不需要</option>` + options.join("");
 
-  const cur = String(hardwareCodeEl.value || "").trim();
+  const cur = normKey(hardwareCodeEl.value || "");
   if(cur && !allowSet.has(cur)) hardwareCodeEl.value = "";
 }
 
-/* ✅ 抽屜規則：深度<=60 顯示 A1/A2/A3；深度>60 顯示 B1/B2/B3
-   下拉顯示「名稱」；value 用 A1/B1...（不對外顯示） */
+/* ✅ 抽屜：依深度顯示 A 或 B，且「只顯示名稱」 */
 function refreshDrawerOptionsByDepth(){
   const Dcm = parseInt(depthEl.value || "0", 10);
 
@@ -614,22 +641,29 @@ function refreshDrawerOptionsByDepth(){
   }
 
   const allowCodes = (Dcm > 60) ? DRAWER_CODES_DEEP : DRAWER_CODES_SHALLOW;
-
   drawerCodeEl.disabled = false;
   drawerQtyEl.disabled = false;
 
   const prev = drawerCodeEl.value;
 
+  // 用 drawersIndex 找到對應 row，確保 value 是「實際編碼」
+  const opts = allowCodes.map(code=>{
+    const row = findByCode(drawersIndex, drawersRows, code);
+    const name = (row?.name || "").trim();
+    return {
+      code,
+      name: name || code,     // 找不到仍顯示 code 以便你定位資料
+      ok: !!row
+    };
+  });
+
   drawerCodeEl.innerHTML =
     [`<option value="">不需要</option>`].concat(
-      allowCodes.map(code=>{
-        const row = findRowByCodeOrName(drawersRows, code);
-        const name = (row?.name || "").trim() || code; // 找不到時至少顯示 code（你可立刻看出哪個缺資料）
-        return `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`;
-      })
+      opts.map(o => `<option value="${escapeHtml(o.code)}">${escapeHtml(o.name)}</option>`)
     ).join("");
 
-  const exists = Array.from(drawerCodeEl.options).some(o => normKey(o.value) === normKey(prev));
+  // 保留先前選擇（若仍在允許清單）
+  const exists = allowCodes.map(normKey).includes(normKey(prev));
   drawerCodeEl.value = exists ? prev : "";
 }
 
@@ -641,7 +675,7 @@ function refreshBoardAutoUI(){
     return { qty:0, ok:false, unitOk:true };
   }
 
-  const row = findRowByCodeOrName(boardsRows, boardCode);
+  const row = findByCode(boardsIndex, boardsRows, boardCode);
   const unit = row?.unit || "";
   const auto = calcBoardQtyByLenWidCaiCeil(unit, boardLenCmEl?.value, boardWidCmEl?.value, boardPiecesEl?.value);
 
@@ -654,20 +688,28 @@ function refreshBoardAutoUI(){
   return { qty: auto.qty || 0, ok: !!auto.ok, unitOk:true };
 }
 
-/* 配件選擇與計價 */
+/* ✅ 配件選擇與計價（抽屜/五金：不乘櫃數） */
 function getAccessorySelections(){
   const selections = [];
   const warnings = [];
 
-  // 1) 抽屜：單價 × 你輸入的抽屜數量（不乘櫃數）
+  // 1) 抽屜：單價 × 你輸入的抽屜數量
   const drawerCode = (drawerCodeEl.value || "").trim();
   if(drawerCode){
     const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
-    const row = findRowByCodeOrName(drawersRows, drawerCode);
+
+    // 先用 code 查
+    let row = findByCode(drawersIndex, drawersRows, drawerCode);
+
+    // ✅ 備援：若因任何原因 value 不是 code，就用顯示文字（名稱）再找一次
+    if(!row){
+      const shownName = getSelectText(drawerCodeEl);
+      row = findByName(drawersRows, shownName);
+    }
 
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "組";
-    const name = (row?.name || "").trim() || "抽屜";
+    const name = (row?.name || "").trim() || getSelectText(drawerCodeEl) || "抽屜";
 
     if(!row){
       warnings.push(`抽屜：drawers 分頁找不到 ${drawerCode}（此項以 $0 計）`);
@@ -675,7 +717,7 @@ function getAccessorySelections(){
 
     selections.push({
       category: "抽屜",
-      code: row?.code || drawerCode,   // 內部保留
+      code: row?.code || drawerCode,
       name,
       unit,
       unitPrice,
@@ -688,7 +730,7 @@ function getAccessorySelections(){
   // 2) 板材封板
   const boardCode = (boardCodeEl.value || "").trim();
   if(boardCode){
-    const row = findRowByCodeOrName(boardsRows, boardCode);
+    const row = findByCode(boardsIndex, boardsRows, boardCode);
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "";
     const name = row?.name || boardCode;
@@ -713,11 +755,12 @@ function getAccessorySelections(){
     });
   }
 
-  // 3) 五金：單價 × 你輸入的數量（不乘櫃數）
+  // 3) 五金：單價 × 你輸入的數量
   const hwCode = (hardwareCodeEl.value || "").trim();
   if(hwCode){
     const qty = Math.max(1, parseInt(hardwareQtyEl.value || "1", 10));
-    const row = findRowByCodeOrName(hardwaresRows, hwCode);
+    const row = findByCode(hardwaresIndex, hardwaresRows, hwCode);
+
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "";
     const name = (row?.name || "").trim() || "五金";
@@ -1022,9 +1065,14 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 
   try{
     await loadCabinets();
+
     drawersRows = await loadSimpleTabFromUrl(DRAWERS_CSV);
-    boardsRows = await loadSimpleTabFromUrl(BOARDS_CSV);
+    boardsRows  = await loadSimpleTabFromUrl(BOARDS_CSV);
     hardwaresRows = await loadSimpleTabFromUrl(HARDWARES_CSV);
+
+    drawersIndex   = buildIndex(drawersRows);
+    boardsIndex    = buildIndex(boardsRows);
+    hardwaresIndex = buildIndex(hardwaresRows);
 
     fillBoardsSelect();
     fillHardwaresSelect();
