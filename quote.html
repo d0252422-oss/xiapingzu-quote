@@ -326,6 +326,9 @@ const CAI2_CM2 = 900;
 const DRAWER_CODES_SHALLOW = ["A1","A2","A3"]; // 深度 <= 60cm
 const DRAWER_CODES_DEEP    = ["B1","B2","B3"]; // 深度 > 60cm
 
+/* 五金只允許這三個（前台只顯示名稱、不顯示編碼） */
+const HARDWARE_ALLOW_CODES = ["Z03","Z04","Z05"];
+
 let cabinetRows = [];
 let drawersRows = [];
 let boardsRows = [];
@@ -554,20 +557,26 @@ function fillBoardsSelect(){
     ).join("");
 }
 
-/* 五金下拉：只顯示名稱（value 仍用 code 查價） */
+/* 五金下拉：只顯示名稱，且只允許 Z03/Z04/Z05 三筆 */
 function fillHardwaresSelect(){
+  const allowSet = new Set(HARDWARE_ALLOW_CODES.map(x => String(x).trim()));
+
+  const options = hardwaresRows
+    .filter(x => x.price > 0)
+    .filter(x => allowSet.has(String(x.code || "").trim()))
+    .map(x => {
+      const name = (x.name || "").trim() || "五金";
+      const unit = (x.unit || "").trim();
+      const tail = `${money(x.price)} / ${escapeHtml(unit)}`;
+      return `<option value="${escapeHtml(x.code)}">${escapeHtml(name)}｜${tail}</option>`;
+    });
+
   hardwareCodeEl.innerHTML =
     `<option value="">不需要</option>` +
-    hardwaresRows
-      .filter(x => x.price > 0)
-      .map(x => {
-        const name = (x.name || "").trim() || x.code;
-        const unit = (x.unit || "").trim();
-        const type = (x.type || "").trim();
-        const tail = `${money(x.price)} / ${escapeHtml(unit)}${type ? `（${escapeHtml(type)}）` : ""}`;
-        return `<option value="${escapeHtml(x.code)}">${escapeHtml(name)}｜${tail}</option>`;
-      })
-      .join("");
+    options.join("");
+
+  const cur = String(hardwareCodeEl.value || "").trim();
+  if(cur && !allowSet.has(cur)) hardwareCodeEl.value = "";
 }
 
 /* 抽屜依深度限制：下拉只顯示名稱（value 仍用 code 查價） */
