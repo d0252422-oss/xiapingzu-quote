@@ -379,6 +379,11 @@ function escapeHtml(str){
 function money(n){ return `$${(n||0).toLocaleString()}`; }
 function normUnit(u){ return String(u||"").trim(); }
 
+/* ✅ header cell 正規化（去 BOM + trim） */
+function normHeaderCell(v){
+  return String(v || "").replace(/^\uFEFF/, "").trim();
+}
+
 function extractGid(url){
   try{
     const u = new URL(url);
@@ -401,7 +406,7 @@ async function fetchCsv(url){
 async function loadCabinets(){
   const text = await fetchCsv(CABINETS_CSV);
   const rows = parseCSV(text);
-  const header = rows[0];
+  const header = (rows[0] || []).map(normHeaderCell);
 
   const idxCode  = header.indexOf("編碼");
   const idxName  = header.indexOf("名稱");
@@ -411,25 +416,31 @@ async function loadCabinets(){
   const idxPrice = header.indexOf("單價");
   const idxType  = header.indexOf("類型");
 
+  if(idxCode<0||idxName<0||idxH<0||idxD<0||idxW<0||idxPrice<0||idxType<0){
+    throw new Error(`cabinets 表頭欄位缺失：${header.join("｜")}`);
+  }
+
   cabinetRows = rows.slice(1).map(r => {
-    const code = (r[idxCode] || "").trim();
-    const name = (r[idxName] || "").trim();
-    const heightMm = parseInt((r[idxH] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const depthMm  = parseInt((r[idxD] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const widthMm  = parseInt((r[idxW] || "0").replace(/[^0-9]/g,""), 10) || 0;
-    const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
-    const type  = (r[idxType] || "").trim();
+    const code = normHeaderCell(r[idxCode]);
+    const name = normHeaderCell(r[idxName]);
+    const heightMm = parseInt(String(r[idxH] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const depthMm  = parseInt(String(r[idxD] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const widthMm  = parseInt(String(r[idxW] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const price = parseInt(String(r[idxPrice] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const type  = normHeaderCell(r[idxType]);
     return { code, name, heightMm, depthMm, widthMm, price, type };
   }).filter(x =>
     x.code && x.type === "櫃體" && x.price > 0 && x.heightMm > 0 && x.depthMm > 0 && x.widthMm > 0
   );
 }
 
-/* load simple tab */
+/* ✅ 強健版：load simple tab（抽屜/板材/五金共用） */
 async function loadSimpleTabFromUrl(url){
   const text = await fetchCsv(url);
   const rows = parseCSV(text);
-  const header = rows[0];
+  if(!rows.length) throw new Error("CSV 空內容：" + url);
+
+  const header = (rows[0] || []).map(normHeaderCell);
 
   const idxCode  = header.indexOf("編碼");
   const idxName  = header.indexOf("名稱");
@@ -437,12 +448,18 @@ async function loadSimpleTabFromUrl(url){
   const idxPrice = header.indexOf("單價");
   const idxType  = header.indexOf("類型");
 
+  if(idxCode < 0 || idxName < 0 || idxUnit < 0 || idxPrice < 0 || idxType < 0){
+    throw new Error(
+      `CSV 表頭欄位缺失（需：編碼/名稱/單位/單價/類型），目前：${header.join("｜")}，URL：${url}`
+    );
+  }
+
   return rows.slice(1).map(r => {
-    const code = (r[idxCode] || "").trim();
-    const name = (r[idxName] || "").trim();
-    const unit = (r[idxUnit] || "").trim();
-    const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
-    const type = (r[idxType] || "").trim();
+    const code = normHeaderCell(r[idxCode]);
+    const name = normHeaderCell(r[idxName]);
+    const unit = normHeaderCell(r[idxUnit]);
+    const price = parseInt(String(r[idxPrice] || "0").replace(/[^0-9]/g,""), 10) || 0;
+    const type = normHeaderCell(r[idxType]);
     return { code, name, unit, price, type };
   }).filter(x => x.code && x.price >= 0);
 }
@@ -645,7 +662,7 @@ function getAccessorySelections(){
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "組";
     const name = (row?.name || "").trim() || "抽屜";
-    if(!row) warnings.push(`抽屜在 drawers 分頁找不到對應資料（此項以 $0 計）`);
+    if(!row) warnings.push("抽屜在 drawers 分頁找不到對應資料（此項以 $0 計）");
     selections.push({
       category: "抽屜",
       code: drawerCode,
@@ -694,7 +711,7 @@ function getAccessorySelections(){
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "";
     const name = (row?.name || "").trim() || "五金";
-    if(!row) warnings.push(`五金在 hardwares 分頁找不到對應資料（此項以 $0 計）`);
+    if(!row) warnings.push("五金在 hardwares 分頁找不到對應資料（此項以 $0 計）");
     selections.push({
       category: "五金",
       code: hwCode,
