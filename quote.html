@@ -164,7 +164,7 @@
 
         <div class="mt-3 space-y-3">
 
-          <!-- 1) 抽屜 -->
+          <!-- 1) 抽屜：下拉只顯示名稱；數量不乘櫃數 -->
           <div class="border rounded-xl p-3 bg-slate-50">
             <p class="text-xs font-semibold text-slate-700 mb-2">1) 抽屜</p>
             <div class="grid grid-cols-3 gap-2">
@@ -174,13 +174,14 @@
                 </select>
               </div>
               <div>
+                <label class="block text-[11px] text-slate-600 mb-1">抽屜數量</label>
                 <input id="drawerPerCab" type="number" min="1" step="1" value="1"
                   class="w-full border rounded-lg px-3 py-2 text-sm" disabled />
               </div>
             </div>
           </div>
 
-          <!-- 2) 板材封板（已移除所有說明字樣） -->
+          <!-- 2) 板材封板 -->
           <div class="border rounded-xl p-3 bg-slate-50">
             <p class="text-xs font-semibold text-slate-700 mb-2">2) 板材封板</p>
 
@@ -217,7 +218,7 @@
             </div>
           </div>
 
-          <!-- 3) 五金 -->
+          <!-- 3) 五金：下拉只顯示名稱；數量不乘櫃數 -->
           <div class="border rounded-xl p-3 bg-slate-50">
             <p class="text-xs font-semibold text-slate-700 mb-2">3) 五金</p>
             <div class="grid grid-cols-3 gap-2">
@@ -227,14 +228,14 @@
                 </select>
               </div>
               <div>
+                <label class="block text-[11px] text-slate-600 mb-1">五金數量</label>
                 <input id="hardwareQty" type="number" min="1" step="1" value="1"
                   class="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
-            <div class="flex items-center gap-2 mt-2">
-              <input id="hardwareMultiplyCab" type="checkbox" class="h-4 w-4" checked>
-              <label for="hardwareMultiplyCab" class="text-[11px] text-slate-600">數量要乘櫃數（總數 = 櫃數 × 右側數量）</label>
-            </div>
+            <p class="text-[11px] text-slate-600 mt-2">
+              五金以右側輸入數量計價（不乘櫃數）
+            </p>
           </div>
 
           <p id="accWarn" class="hidden text-[11px] text-red-600"></p>
@@ -323,7 +324,7 @@ const CM_TO_MM = 10;
 /* 1才²=900cm²（計算用，不顯示在 UI） */
 const CAI2_CM2 = 900;
 
-/* 抽屜深度規則 */
+/* 抽屜深度規則（仍用編碼做匹配，但 UI 不顯示編碼文字） */
 const DRAWER_CODES_SHALLOW = ["深61","深62","深63"]; // 深度 <= 60cm
 const DRAWER_CODES_DEEP    = ["深91","深92","深93"]; // 深度 > 60cm
 
@@ -474,7 +475,7 @@ function findBestRate(kind, inputHeightMm, inputDepthMm){
   return best;
 }
 
-/* ===== 板材封板：長×寬→面積÷900→逐片無條件進位→×片數（UI 不顯示說明） ===== */
+/* ===== 板材封板：長×寬→面積÷900→逐片無條件進位→×片數 ===== */
 function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
   const u = normUnit(rowUnit);
   const L = parseFloat(Lcm || "0");
@@ -486,8 +487,8 @@ function calcBoardQtyByLenWidCaiCeil(rowUnit, Lcm, Wcm, pieces){
 
   const areaCm2 = L * W;
   const caiRaw = areaCm2 / CAI2_CM2;
-  const caiPerPiece = Math.ceil(caiRaw);  // 逐片進位
-  const totalCai = caiPerPiece * pcs;     // ×片數
+  const caiPerPiece = Math.ceil(caiRaw);
+  const totalCai = caiPerPiece * pcs;
 
   return { qty: totalCai, ok:true };
 }
@@ -500,7 +501,7 @@ const widthEl  = document.getElementById("widthCm");
 const qtySetEl = document.getElementById("qtySet");
 
 const drawerCodeEl = document.getElementById("drawerCode");
-const drawerPerCabEl = document.getElementById("drawerPerCab");
+const drawerQtyEl = document.getElementById("drawerPerCab");
 
 const boardCodeEl = document.getElementById("boardCode");
 const boardQtyEl = document.getElementById("boardQty");
@@ -510,7 +511,6 @@ const boardPiecesEl = document.getElementById("boardPieces");
 
 const hardwareCodeEl = document.getElementById("hardwareCode");
 const hardwareQtyEl = document.getElementById("hardwareQty");
-const hardwareMultiplyCabEl = document.getElementById("hardwareMultiplyCab");
 
 const loadStatus = document.getElementById("loadStatus");
 const matchHint = document.getElementById("matchHint");
@@ -539,6 +539,13 @@ function findByCode(rows, code){
   return rows.find(x => (x.code || "").trim() === (code || "").trim()) || null;
 }
 
+/* 抽屜、五金：顯示名稱（不顯示編碼） */
+function accDisplayName(a){
+  if(a.category === "抽屜") return a.name || "";
+  if(a.category === "五金") return a.name || "";
+  return `${a.code}｜${a.name}`;
+}
+
 /* boards/hardwares 下拉填入 */
 function fillBoardsSelect(){
   boardCodeEl.innerHTML =
@@ -547,21 +554,30 @@ function fillBoardsSelect(){
       `<option value="${escapeHtml(x.code)}">${escapeHtml(x.code)}｜${escapeHtml(x.name)}｜${money(x.price)} / ${escapeHtml(x.unit||"")}</option>`
     ).join("");
 }
+
+/* 五金下拉：只顯示名稱（value 仍是 code） */
 function fillHardwaresSelect(){
   hardwareCodeEl.innerHTML =
     `<option value="">不需要</option>` +
-    hardwaresRows.filter(x=>x.price>0).map(x =>
-      `<option value="${escapeHtml(x.code)}">${escapeHtml(x.code)}｜${escapeHtml(x.name)}｜${money(x.price)} / ${escapeHtml(x.unit||"")}（${escapeHtml(x.type||"")}）</option>`
-    ).join("");
+    hardwaresRows
+      .filter(x => x.price > 0)
+      .map(x => {
+        const name = (x.name || "").trim() || x.code;
+        const unit = (x.unit || "").trim();
+        const type = (x.type || "").trim();
+        const tail = `${money(x.price)} / ${escapeHtml(unit)}${type ? `（${escapeHtml(type)}）` : ""}`;
+        return `<option value="${escapeHtml(x.code)}">${escapeHtml(name)}｜${tail}</option>`;
+      })
+      .join("");
 }
 
-/* 抽屜依深度限制 */
+/* 抽屜依深度限制：下拉只顯示「名稱」（value 仍用 code） */
 function refreshDrawerOptionsByDepth(){
   const Dcm = parseInt(depthEl.value || "0", 10);
 
   if(!(Dcm > 0)){
     drawerCodeEl.disabled = true;
-    drawerPerCabEl.disabled = true;
+    drawerQtyEl.disabled = true;
     drawerCodeEl.innerHTML = `<option value="">請先輸入深度</option>`;
     drawerCodeEl.value = "";
     return;
@@ -570,7 +586,7 @@ function refreshDrawerOptionsByDepth(){
   const allowCodes = (Dcm > 60) ? DRAWER_CODES_DEEP : DRAWER_CODES_SHALLOW;
 
   drawerCodeEl.disabled = false;
-  drawerPerCabEl.disabled = false;
+  drawerQtyEl.disabled = false;
 
   const prev = drawerCodeEl.value;
 
@@ -578,10 +594,8 @@ function refreshDrawerOptionsByDepth(){
     [`<option value="">不需要</option>`].concat(
       allowCodes.map(code=>{
         const row = findByCode(drawersRows, code);
-        const name = row?.name || "（表內找不到名稱）";
-        const price = row?.price || 0;
-        const unit = row?.unit || "";
-        return `<option value="${escapeHtml(code)}">${escapeHtml(code)}｜${escapeHtml(name)}｜${money(price)} / ${escapeHtml(unit)}</option>`;
+        const name = (row?.name || "").trim() || "（表內找不到名稱）";
+        return `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`;
       })
     ).join("");
 
@@ -615,16 +629,15 @@ function getAccessorySelections(cabCountTotal){
   const selections = [];
   const warnings = [];
 
-  // 1) 抽屜：總數 = 櫃數 × 每櫃
+  // 1) 抽屜：總數 = 右側輸入抽屜數量（不乘櫃數）
   const drawerCode = (drawerCodeEl.value || "").trim();
   if(drawerCode){
-    const perCab = Math.max(1, parseInt(drawerPerCabEl.value || "1", 10));
-    const qty = Math.max(1, (cabCountTotal || 0) * perCab);
+    const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
     const row = findByCode(drawersRows, drawerCode);
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "組";
-    const name = row?.name || drawerCode;
-    if(!row) warnings.push(`抽屜編碼 ${drawerCode} 在 drawers 分頁找不到（此項以 $0 計）`);
+    const name = (row?.name || "").trim() || "抽屜";
+    if(!row) warnings.push(`抽屜在 drawers 分頁找不到對應資料（此項以 $0 計）`);
     selections.push({
       category: "抽屜",
       code: drawerCode,
@@ -632,12 +645,12 @@ function getAccessorySelections(cabCountTotal){
       unit,
       unitPrice,
       qty,
-      qtyMode: `櫃數×${perCab}`,
+      qtyMode: `自訂×${qty}`,
       amount: unitPrice * qty
     });
   }
 
-  // 2) 板材封板：依長寬與片數計算（逐片進位後再×片數）
+  // 2) 板材封板
   const boardCode = (boardCodeEl.value || "").trim();
   if(boardCode){
     const row = findByCode(boardsRows, boardCode);
@@ -665,16 +678,15 @@ function getAccessorySelections(cabCountTotal){
     });
   }
 
-  // 3) 五金：可乘櫃數
+  // 3) 五金：總數 = 右側輸入數量（不乘櫃數）
   const hwCode = (hardwareCodeEl.value || "").trim();
   if(hwCode){
-    const baseQty = Math.max(1, parseInt(hardwareQtyEl.value || "1", 10));
-    const qty = hardwareMultiplyCabEl.checked ? Math.max(1, (cabCountTotal||0) * baseQty) : baseQty;
+    const qty = Math.max(1, parseInt(hardwareQtyEl.value || "1", 10));
     const row = findByCode(hardwaresRows, hwCode);
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "";
-    const name = row?.name || hwCode;
-    if(!row) warnings.push(`五金編碼 ${hwCode} 在 hardwares 分頁找不到（此項以 $0 計）`);
+    const name = (row?.name || "").trim() || "五金";
+    if(!row) warnings.push(`五金在 hardwares 分頁找不到對應資料（此項以 $0 計）`);
     selections.push({
       category: "五金",
       code: hwCode,
@@ -682,7 +694,7 @@ function getAccessorySelections(cabCountTotal){
       unit,
       unitPrice,
       qty,
-      qtyMode: hardwareMultiplyCabEl.checked ? `櫃數×${baseQty}` : `自訂×${baseQty}`,
+      qtyMode: `自訂×${qty}`,
       amount: unitPrice * qty
     });
   }
@@ -692,7 +704,6 @@ function getAccessorySelections(cabCountTotal){
 
 /* 即時計算 */
 function updateMatchAndPreview(){
-  // 先刷新板材（不顯示任何說明）
   const boardState = refreshBoardAutoUI();
 
   const kind = cabinetKindEl.value;
@@ -747,7 +758,7 @@ function updateMatchAndPreview(){
     `已匹配：${kind}｜高 ${(best.heightMm/10).toFixed(0)} / 深 ${(best.depthMm/10).toFixed(0)} / 寬 ${(best.widthMm/10).toFixed(0)}（來源：[${best.code}]）`;
 
   const accLine = selections.length
-    ? selections.map(a=>`${a.category} ${a.code} ${money(a.unitPrice)}×${a.qty}=${money(a.amount)}`).join("；")
+    ? selections.map(a=>`${a.category} ${accDisplayName(a)} ${money(a.unitPrice)}×${a.qty}=${money(a.amount)}`).join("；")
     : "無";
 
   linePreview.innerHTML =
@@ -806,7 +817,7 @@ function renderCart(){
           <div class="mt-1 space-y-1">
             ${it.accessories.map(a=>`
               <p class="text-[11px] text-slate-600">
-                - ${escapeHtml(a.category)}：${escapeHtml(a.code)}｜${escapeHtml(a.name)}
+                - ${escapeHtml(a.category)}：${escapeHtml(accDisplayName(a))}
                 ｜${money(a.unitPrice)} × ${a.qty} = ${money(a.amount)}
               </p>
             `).join("")}
@@ -881,7 +892,7 @@ function buildPayload(){
   const itemsText = cartItems.map((it,i)=>{
     const accText = (it.accessories && it.accessories.length)
       ? it.accessories.map(a=>(
-          `   - ${a.category}：${a.code}｜${a.name}｜$${a.unitPrice}/${a.unit} × ${a.qty} = $${(a.amount||0).toLocaleString()}`
+          `   - ${a.category}：${accDisplayName(a)}｜$${a.unitPrice}/${a.unit} × ${a.qty} = $${(a.amount||0).toLocaleString()}`
         )).join("\n")
       : "   - 無";
 
@@ -1027,7 +1038,7 @@ ${listText}
   qtySetEl.oninput = updateMatchAndPreview;
 
   drawerCodeEl.onchange = updateMatchAndPreview;
-  drawerPerCabEl.oninput = updateMatchAndPreview;
+  drawerQtyEl.oninput = updateMatchAndPreview;
 
   boardCodeEl.onchange = updateMatchAndPreview;
   boardLenCmEl.oninput = updateMatchAndPreview;
@@ -1036,7 +1047,6 @@ ${listText}
 
   hardwareCodeEl.onchange = updateMatchAndPreview;
   hardwareQtyEl.oninput = updateMatchAndPreview;
-  hardwareMultiplyCabEl.onchange = updateMatchAndPreview;
 
   document.getElementById("sendBtn").onclick = sendToMake;
 
