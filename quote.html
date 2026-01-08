@@ -366,6 +366,12 @@ function toggleScale(){
 }
 
 /* utils */
+function parseCSV(text){
+  const quotes=/^"|"$/g;
+  return text.trim().split("\n").filter(Boolean).map(r =>
+    r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,"").trim())
+  );
+}
 function escapeHtml(str){
   return String(str || "")
     .replaceAll("&","&amp;")
@@ -378,56 +384,9 @@ function money(n){ return `$${(n||0).toLocaleString()}`; }
 function normUnit(u){ return String(u||"").trim(); }
 function normHeaderCell(v){ return String(v || "").replace(/^\uFEFF/, "").trim(); }
 
-/* ✅ 支援 CSV + TSV（你貼出的內容是 Tab 分隔） */
-function splitDelimitedLine(line, delim){
-  const out = [];
-  let cur = "";
-  let inQ = false;
-
-  for(let i=0;i<line.length;i++){
-    const ch = line[i];
-    if(ch === '"'){
-      if(inQ && line[i+1] === '"'){ cur += '"'; i++; continue; }
-      inQ = !inQ;
-      continue;
-    }
-    if(!inQ && ch === delim){
-      out.push(cur.trim());
-      cur = "";
-      continue;
-    }
-    cur += ch;
-  }
-  out.push(cur.trim());
-  return out;
-}
-function parseCSV(text){
-  const raw = String(text || "")
-    .replace(/^\uFEFF/, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .trim();
-
-  if(!raw) return [];
-
-  const lines = raw.split("\n").filter(l => l.trim().length);
-  const head = lines[0];
-
-  const tabCount = (head.match(/\t/g) || []).length;
-  const commaCount = (head.match(/,/g) || []).length;
-  const delim = tabCount > commaCount ? "\t" : ",";
-
-  return lines.map(line => splitDelimitedLine(line, delim));
-}
-
-/* ✅ 更耐髒的 code 正規化（全形→半形、去不可見字元） */
-function toHalfWidth(str){
-  return String(str || "").replace(/[\uFF01-\uFF5E]/g, ch =>
-    String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)
-  );
-}
+/* ✅ 強化：清除不可見字元，最後只保留 A-Z0-9，避免 B1 對不到 */
 function normKey(v){
-  return toHalfWidth(String(v || ""))
+  return String(v || "")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .replace(/\u00A0/g, " ")
     .replace(/\u3000/g, " ")
@@ -464,12 +423,11 @@ function extractGid(url){
     return m ? m[1] : "";
   }
 }
-
 async function fetchCsv(url){
   const res = await fetch(url + "&rand=" + Math.random());
-  if(!res.ok) throw new Error("CSV/TSV 讀取失敗：" + url);
+  if(!res.ok) throw new Error("CSV 讀取失敗：" + url);
   const text = await res.text();
-  if(!text.includes("編碼")) throw new Error("內容不含表頭（編碼），可能未發佈或 gid 錯誤：" + url);
+  if(!text.includes("編碼")) throw new Error("CSV 內容不含表頭（編碼），可能未發佈或 gid 錯誤：" + url);
   return text;
 }
 
@@ -505,11 +463,11 @@ async function loadCabinets(){
   );
 }
 
-/* load simple tab (drawers/boards/hardwares) */
+/* load simple tab */
 async function loadSimpleTabFromUrl(url){
   const text = await fetchCsv(url);
   const rows = parseCSV(text);
-  if(!rows.length) throw new Error("內容為空：" + url);
+  if(!rows.length) throw new Error("CSV 空內容：" + url);
 
   const header = (rows[0] || []).map(normHeaderCell);
 
@@ -521,7 +479,7 @@ async function loadSimpleTabFromUrl(url){
 
   if(idxCode < 0 || idxName < 0 || idxUnit < 0 || idxPrice < 0 || idxType < 0){
     throw new Error(
-      `表頭欄位缺失（需：編碼/名稱/單位/單價/類型），目前：${header.join("｜")}，URL：${url}`
+      `CSV 表頭欄位缺失（需：編碼/名稱/單位/單價/類型），目前：${header.join("｜")}，URL：${url}`
     );
   }
 
@@ -550,36 +508,18 @@ function findByCode(indexMap, rows, code){
   return (rows || []).find(r => normKey(r.code) === k) || null;
 }
 
-/* ✅ 抽屜：先 code 找；找不到再用名稱找；再從 "B1｜xxx" 拆 code 重找 */
+/* ✅ 抽屜專用：先用 code 找；找不到再用名稱找 */
 function getDrawerRowByCodeOrName(code, nameCandidate){
   const k = normKey(code);
   if(k){
-    const row =
-      drawersIndex.get(k) ||
-      (drawersRows || []).find(r => normKey(r.code) === k) ||
-      null;
+    const row = drawersIndex.get(k) || (drawersRows || []).find(r => normKey(r.code) === k) || null;
     if(row) return row;
   }
-
   const name = String(nameCandidate || "").trim();
   if(name){
     const row2 = (drawersRows || []).find(r => String(r.name || "").trim() === name) || null;
     if(row2) return row2;
   }
-
-  const s = String(code || "").trim();
-  if(s.includes("｜")){
-    const maybeCode = s.split("｜")[0].trim();
-    const k2 = normKey(maybeCode);
-    if(k2){
-      const row3 =
-        drawersIndex.get(k2) ||
-        (drawersRows || []).find(r => normKey(r.code) === k2) ||
-        null;
-      if(row3) return row3;
-    }
-  }
-
   return null;
 }
 
@@ -673,7 +613,7 @@ function setWarn(msg){
   }
 }
 
-/* 預覽/購物車/送出文字：抽屜 & 五金只顯示「名稱」 */
+/* 預覽/購物車：抽屜&五金只顯示名稱（不顯示編碼） */
 function accDisplayName(a){
   if(a.category === "抽屜") return a.name || "";
   if(a.category === "五金") return a.name || "";
@@ -770,25 +710,23 @@ function getAccessorySelections(){
   if(drawerCode){
     const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
 
-    const optionText = getSelectText(drawerCodeEl);           // 例如：B1｜木抽90以下(...)
-    const parsed = parseCodeNameFromOptionText(optionText);
-    const codeFromText = parsed.code || drawerCode;
-    const nameFromText = parsed.name || "";
+    const optionText = getSelectText(drawerCodeEl);         // 例如：B1｜木抽90以下(...)
+    const parsed = parseCodeNameFromOptionText(optionText); // 拆出 name
+    const nameFromOption = parsed.name || "";
 
-    let row = getDrawerRowByCodeOrName(drawerCode, nameFromText);
-    if(!row) row = getDrawerRowByCodeOrName(codeFromText, nameFromText);
+    const row = getDrawerRowByCodeOrName(drawerCode, nameFromOption);
 
     const unitPrice = row?.price || 0;
     const unit = row?.unit || "組";
-    const name = String(row?.name || "").trim() || nameFromText || "抽屜";
+    const name = String(row?.name || "").trim() || nameFromOption || "抽屜";
 
     if(!row){
-      warnings.push(`抽屜：drawers 分頁找不到對應資料（選擇=${drawerCode} / 解析=${codeFromText}，此項以 $0 計）`);
+      warnings.push(`抽屜：drawers 分頁找不到對應資料（此項以 $0 計）`);
     }
 
     selections.push({
       category: "抽屜",
-      code: row?.code || codeFromText || drawerCode,
+      code: row?.code || drawerCode,
       name,
       unit,
       unitPrice,
@@ -1176,9 +1114,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 請檢查：
 1) Google Sheet → 檔案 → 發佈到網路（Publish to the web）
 2) gid 是否對到正確分頁（切到分頁後看網址列 gid）
-3) 直接打開下方 URL 是否能看到純文字（逗號或 Tab 分隔）
+3) 直接打開下方 URL 是否能看到純 CSV 文字（逗號分隔）
 
-目前系統設定的 4 個來源：
+目前系統設定的 4 個 CSV：
 ${listText}
 `;
 
@@ -1211,4 +1149,3 @@ ${listText}
 
 </body>
 </html>
-```0
