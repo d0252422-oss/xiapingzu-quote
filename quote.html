@@ -6,188 +6,154 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
-    body{ box-sizing: border-box; background-color: #0f172a; font-family: sans-serif; }
+    body{box-sizing:border-box;}
+    html,body{height:100%;-webkit-overflow-scrolling:touch;}
+    /* 回復原本的深色背景與漸層 */
+    .wood-bg{background-image:linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%);}
     :root{ --scale: 1.25; }
     html{ font-size: calc(16px * var(--scale)); }
-    .wood-bg{ background-image: linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%); }
-    input, select, button{ font-size: 1rem !important; padding: 0.6rem !important; }
+    
+    /* 確保輸入框與按鈕在手機上易於點擊 */
+    input, select, button{ font-size: 1.05rem !important; }
+    .text-xs{ font-size: 0.95rem !important; }
+    .text-[11px]{ font-size: 0.85rem !important; }
   </style>
 </head>
 
-<body class="flex justify-center">
-<div class="w-full max-w-md min-h-screen bg-slate-100 flex flex-col">
+<body class="min-h-screen bg-[#0f172a]">
+<div class="max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
 
-  <header class="wood-bg h-24 flex flex-col justify-end px-4 pb-3 shadow-md">
-    <h1 class="text-white text-xl font-bold">拚拼組 <span class="text-emerald-900">系統櫃報價</span></h1>
-    <p class="text-white/80 text-xs font-bold">資料來源：Google Sheets (drawers)</p>
+  <header class="relative overflow-hidden h-24">
+    <div class="wood-bg h-full w-full"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-[#022c22] to-transparent"></div>
+    <div class="absolute inset-0 flex flex-col justify-end px-4 pb-3">
+      <h1 class="text-2xl font-semibold text-white">拚拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1>
+    </div>
   </header>
 
-  <main class="p-4 space-y-4 mb-32">
-    <section class="bg-white rounded-xl p-4 shadow-md space-y-3">
-      <input id="customerName" type="text" placeholder="客戶姓名" class="border rounded-lg w-full">
-      <div class="grid grid-cols-3 gap-2">
-        <input id="heightCm" type="number" placeholder="高(cm)" class="border rounded-lg w-full">
-        <input id="depthCm" type="number" placeholder="深(cm)" class="border rounded-lg w-full">
-        <input id="widthCm" type="number" placeholder="寬(cm)" class="border rounded-lg w-full">
+  <main class="flex-1 overflow-y-auto px-4 pb-48 pt-4 space-y-4">
+    <section class="bg-white rounded-2xl shadow-lg p-4 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <input id="customerName" type="text" class="border rounded-lg px-3 py-2" placeholder="客戶姓名" />
+        <input id="customerPhone" type="tel" class="border rounded-lg px-3 py-2" placeholder="聯絡電話" />
       </div>
     </section>
 
-    <section class="bg-white rounded-xl p-4 shadow-md space-y-4">
-      <div class="border-l-4 border-emerald-500 pl-2">
-        <p class="text-sm font-bold text-slate-700">1) 抽屜配件</p>
-        <p class="text-[10px] text-slate-400">系統將依深度自動顯示 A 或 B 系列</p>
-      </div>
-      
-      <div class="flex gap-2">
-        <select id="drawerCode" class="border rounded-lg flex-1 bg-white text-sm">
-          <option value="">請先輸入深度尺寸</option>
+    <section class="bg-white rounded-2xl shadow-lg p-4 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <input id="cabinetLabel" type="text" class="border rounded-lg px-3 py-2" placeholder="名稱 (如：衣櫃)" />
+        <select id="cabinetKind" class="border rounded-lg px-3 py-2">
+          <option value="開門櫃">開門櫃</option>
+          <option value="空櫃">空櫃</option>
         </select>
-        <div class="flex items-center gap-1 border rounded-lg px-2">
-          <span class="text-xs text-slate-400">數量</span>
-          <input id="drawerPerCab" type="number" value="1" class="w-10 text-center outline-none">
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <input id="heightCm" type="number" class="border rounded-lg px-3 py-2" placeholder="高(cm)" />
+        <input id="depthCm" type="number" class="border rounded-lg px-3 py-2" placeholder="深(cm)" />
+        <input id="widthCm" type="number" class="border rounded-lg px-3 py-2" placeholder="寬(cm)" />
+      </div>
+
+      <div class="border-t pt-3 space-y-4">
+        <div>
+          <p class="text-xs font-bold text-slate-700 mb-1">抽屜 (依深度自動篩選)</p>
+          <div class="grid grid-cols-3 gap-2">
+            <select id="drawerCode" class="col-span-2 border rounded-lg px-2 py-2" disabled><option value="">請先輸入深度</option></select>
+            <input id="drawerPerCab" type="number" value="1" class="border rounded-lg px-2 py-2 text-center" />
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs font-bold text-slate-700 mb-1">板材封板</p>
+          <select id="boardCode" class="border rounded-lg w-full px-2 py-2 mb-2"><option value="">不需要</option></select>
+          <div class="grid grid-cols-3 gap-2">
+            <input id="boardLen" type="number" placeholder="長" class="border rounded-lg px-2 py-1" />
+            <input id="boardWid" type="number" placeholder="寬" class="border rounded-lg px-2 py-1" />
+            <input id="boardPcs" type="number" value="1" class="border rounded-lg px-2 py-1" />
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs font-bold text-slate-700 mb-1">五金</p>
+          <div class="grid grid-cols-3 gap-2">
+            <select id="hardwareCode" class="col-span-2 border rounded-lg px-2 py-2"><option value="">不需要</option></select>
+            <input id="hardwareQty" type="number" value="1" class="border rounded-lg px-2 py-2 text-center" />
+          </div>
         </div>
       </div>
+
+      <div class="bg-emerald-50 p-2 rounded-lg border border-emerald-100 text-center">
+        <p id="linePreview" class="text-xs font-bold text-emerald-800">請輸入尺寸</p>
+      </div>
+      <button id="addItemBtn" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl">加入購物車</button>
     </section>
 
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-      <p id="linePreview" class="text-sm font-bold text-blue-900">等待輸入資料...</p>
-    </div>
-
-    <button id="addItemBtn" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition">
-      加入報價清單
-    </button>
-
-    <div id="cartList" class="space-y-2"></div>
+    <section class="bg-white rounded-2xl shadow-lg p-4">
+      <h2 class="text-sm font-bold text-slate-700 mb-3 border-b pb-2">購物車內容</h2>
+      <div id="quoteList" class="space-y-3"></div>
+      <div class="mt-4 pt-2 border-t space-y-1 text-sm">
+        <div class="flex justify-between"><span>小計</span><span id="subtotalDisplay">$0</span></div>
+        <div class="flex justify-between text-xs text-slate-500"><span>補貼 (未滿五萬)</span><span id="ufAmountDisplay">$0</span></div>
+        <div class="flex justify-between text-lg font-bold text-emerald-700 border-t pt-2"><span>總計</span><span id="totalDisplay">$0</span></div>
+      </div>
+    </section>
   </main>
 
-  <footer class="fixed bottom-0 w-full max-w-md bg-white p-4 flex justify-between items-center border-t shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
-    <div>
-      <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Estimated Total</p>
-      <p id="totalDisplay" class="text-xl font-black text-emerald-600">$ 0</p>
+  <footer class="fixed bottom-0 left-0 right-0 bg-[#022c22] p-4 flex items-center justify-between border-t border-emerald-900">
+    <div class="text-emerald-100">
+      <p class="text-xs">報價總結</p>
+      <p id="footerTotal" class="text-lg font-bold text-emerald-300">$0</p>
     </div>
-    <button id="sendBtn" class="bg-emerald-500 text-white px-8 py-2 rounded-lg font-bold shadow-md active:bg-emerald-600">傳送報價</button>
+    <button id="sendBtn" class="bg-emerald-500 text-emerald-950 font-bold px-8 py-2 rounded-xl">傳送報價</button>
   </footer>
 </div>
 
 <script>
-// 直接鎖定您的 CSV 連結
-const DRAWER_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv";
-const CABINET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
-
-let drawerData = [];
-let cabinetData = [];
-let cart = [];
-
-// 解析函數：針對您的 Excel 截圖設計 (A:編碼, B:名稱, D:單價)
-function parseDrawerCSV(csvText) {
-  const rows = csvText.trim().split('\n').slice(1); // 跳過第一列標題
-  return rows.map(row => {
-    const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-    return {
-      code: cols[0] || "",  // A 欄: 編碼
-      name: cols[1] || "",  // B 欄: 名稱
-      price: parseInt(cols[3]?.replace(/[^\d]/g, '')) || 0 // D 欄: 單價
-    };
-  }).filter(item => item.code !== "");
-}
-
-async function loadSheets() {
-  try {
-    const [dRes, cRes] = await Promise.all([
-      fetch(DRAWER_CSV + "&t=" + Date.now()).then(r => r.text()),
-      fetch(CABINET_CSV + "&t=" + Date.now()).then(r => r.text())
-    ]);
-    drawerData = parseDrawerCSV(dRes);
-    console.log("抽屜資料已載入:", drawerData);
-    updateDrawerUI();
-  } catch (e) {
-    alert("Excel 資料讀取失敗，請確認網路連線");
-  }
-}
-
-function updateDrawerUI() {
-  const depth = parseInt(document.getElementById("depthCm").value || 0);
-  const select = document.getElementById("drawerCode");
-  
-  if (depth <= 0) {
-    select.innerHTML = '<option value="">請先輸入深度</option>';
-    return;
-  }
-
-  // 邏輯：深 > 60 用 B 系列，否則用 A 系列
-  const filterPrefix = depth > 60 ? "B" : "A";
-  const options = drawerData.filter(d => d.code.startsWith(filterPrefix));
-
-  let html = '<option value="">不需要</option>';
-  if (options.length === 0) {
-    html = '<option value="">(查無對應抽屜資料)</option>';
-  } else {
-    options.forEach(opt => {
-      html += `<option value="${opt.code}">${opt.code} | ${opt.name} | $${opt.price}</option>`;
-    });
-  }
-  select.innerHTML = html;
-}
-
-function calculate() {
-  updateDrawerUI();
-  const dCode = document.getElementById("drawerCode").value;
-  const dQty = parseInt(document.getElementById("drawerPerCab").value) || 0;
-  
-  let currentTotal = 0;
-  if (dCode) {
-    const match = drawerData.find(d => d.code === dCode);
-    if (match) currentTotal = match.price * dQty;
-  }
-  
-  document.getElementById("linePreview").textContent = dCode ? `預計金額：$ ${currentTotal.toLocaleString()}` : "請選擇配件";
-  return currentTotal;
-}
-
-document.getElementById("addItemBtn").onclick = () => {
-  const dCode = document.getElementById("drawerCode").value;
-  if (!dCode) return alert("請先選擇抽屜配件");
-  
-  const match = drawerData.find(d => d.code === dCode);
-  const dQty = parseInt(document.getElementById("drawerPerCab").value) || 1;
-  
-  cart.push({
-    name: match.name,
-    code: match.code,
-    qty: dQty,
-    sub: match.price * dQty
-  });
-  
-  renderCart();
+const CSV = {
+  CAB: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv",
+  DRA: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv",
+  BOA: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv",
+  HAR: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv"
 };
 
-function renderCart() {
-  const list = document.getElementById("cartList");
-  let total = 0;
-  list.innerHTML = cart.map((item, i) => {
-    total += item.sub;
-    return `
-      <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center border-l-4 border-slate-800">
-        <div>
-          <p class="font-bold text-sm">${item.code} ${item.name}</p>
-          <p class="text-xs text-slate-400">數量: ${item.qty} | 小計: $${item.sub.toLocaleString()}</p>
-        </div>
-        <button onclick="cart.splice(${i},1);renderCart();" class="text-red-400 font-bold">✕</button>
-      </div>
-    `;
-  }).join('');
-  document.getElementById("totalDisplay").textContent = `$ ${total.toLocaleString()}`;
+let db = { cab:[], dra:[], boa:[], har:[] };
+let cartItems = [];
+let userId = null;
+
+// 解析 CSV：專門針對您的 Excel 格式優化
+function parseCSV(text) {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return [];
+  const rows = lines.map(line => line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v => v.replace(/^"|"$/g, '').trim()));
+  
+  // 取得標頭並找出索引
+  const head = rows[0];
+  const idx = {
+    code: head.findIndex(h => h.includes("編碼")),
+    name: head.findIndex(h => h.includes("名稱")),
+    price: head.findIndex(h => h.includes("單價")),
+    h: head.findIndex(h => h.includes("高度")),
+    d: head.findIndex(h => h.includes("深度")),
+    w: head.findIndex(h => h.includes("寬度"))
+  };
+
+  return rows.slice(1).map(r => ({
+    code: r[idx.code] || "",
+    name: r[idx.name] || "名稱讀取失敗",
+    price: parseInt(String(r[idx.price] || "0").replace(/[^\d]/g, "")) || 0,
+    h: parseInt(r[idx.h]) || 0, d: parseInt(r[idx.d]) || 0, w: parseInt(r[idx.w]) || 0
+  })).filter(x => x.code !== "");
 }
 
-window.onload = async () => {
-  await liff.init({ liffId: "2008590887-zkqDbWqb" });
-  await loadSheets();
-  
-  document.getElementById("depthCm").oninput = calculate;
-  document.getElementById("drawerCode").onchange = calculate;
-  document.getElementById("drawerPerCab").oninput = calculate;
-};
-</script>
-</body>
-</html>
+async function fetchData() {
+  const [c, d, b, h] = await Promise.all([
+    fetch(CSV.CAB + "&t=" + Date.now()).then(r => r.text()),
+    fetch(CSV.DRA + "&t=" + Date.now()).then(r => r.text()),
+    fetch(CSV.BOA + "&t=" + Date.now()).then(r => r.text()),
+    fetch(CSV.HAR + "&t=" + Date.now()).then(r => r.text())
+  ]);
+  db.cab = parseCSV(c);
+  db.dra = parseCSV(d); // 抽屜資料
+  db.boa = parseCSV(b);
+  db.har = parseCSV(
