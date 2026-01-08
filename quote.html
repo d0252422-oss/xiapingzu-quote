@@ -6,303 +6,282 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-
   <style>
-    body{box-sizing:border-box;}
-    html,body{height:100%;-webkit-overflow-scrolling:touch;}
-    *{-webkit-tap-highlight-color:transparent;}
-    .wood-bg{background-image:linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%);}
-    .elevated{box-shadow:0 18px 40px rgba(15,23,42,0.25);}
+    body{box-sizing:border-box; font-family: sans-serif;}
+    html,body{height:100%;-webkit-overflow-scrolling:touch; background-color: #0f172a;}
     :root{ --scale: 1.25; }
     html{ font-size: calc(16px * var(--scale)); }
-    .text-\[11px\]{ font-size: 0.90rem !important; }
-    .text-xs{ font-size: 0.98rem !important; }
-    .text-sm{ font-size: 1.05rem !important; }
-    input, select, button{ font-size: 1.08rem !important; line-height: 1.35 !important; }
-    input, select{ padding-top: 0.85rem !important; padding-bottom: 0.85rem !important; }
-    button{ padding-top: 0.95rem !important; padding-bottom: 0.95rem !important; }
-    .text-slate-400, .text-slate-500{ color: rgba(71,85,105,0.95) !important; }
-    #totalDisplay, #footerTotal{ font-size: 1.45rem !important; }
+    .wood-bg{background-image:linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%);}
+    .elevated{box-shadow:0 10px 25px rgba(0,0,0,0.2);}
+    input, select, button{ font-size: 1rem !important; padding: 0.6rem !important; }
   </style>
 </head>
 
-<body class="min-h-screen bg-[#0f172a]">
-<div class="max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
+<body class="flex justify-center">
+<div class="w-full max-w-md min-h-screen bg-slate-100 flex flex-col relative">
 
-  <header class="relative overflow-hidden">
-    <div class="wood-bg h-20 w-full"></div>
-    <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#022c22] via-[#064e3b]/95 to-transparent"></div>
-    <div class="absolute top-3 right-4 z-20">
-      <button id="fontToggleBtn" class="rounded-xl bg-white/90 backdrop-blur px-3 py-2 text-[11px] font-semibold text-slate-800 border border-white/70 shadow-sm active:scale-95">字體：1.25×</button>
-    </div>
-    <div class="absolute inset-0 flex flex-col justify-end px-4 pb-4">
-      <p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">SYSTEM CABINET QUOTE</p>
-      <h1 class="text-2xl font-semibold text-white">拚拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1>
-      <p class="text-[11px] text-emerald-100/80 mt-1">自動計價系統｜請輸入櫃體尺寸</p>
-    </div>
+  <header class="wood-bg h-24 flex flex-col justify-end px-4 pb-3 relative">
+    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+    <h1 class="text-white text-xl font-bold relative z-10">拚拼組 <span class="text-emerald-300">系統櫃報價</span></h1>
+    <p class="text-white/80 text-xs relative z-10">Excel 自動連動版</p>
   </header>
 
-  <main class="flex-1 overflow-y-auto px-4 pb-48 pt-4 space-y-4">
-    <section class="bg-white rounded-2xl elevated p-4 space-y-3">
-      <h2 class="text-sm font-semibold text-slate-700">1. 客戶資訊</h2>
-      <div class="grid grid-cols-2 gap-3 text-sm">
-        <input id="customerName" type="text" class="border rounded-lg px-3 py-2" placeholder="客戶姓名" />
-        <input id="customerPhone" type="tel" class="border rounded-lg px-3 py-2" placeholder="聯絡電話" />
+  <main class="p-4 space-y-4 mb-32">
+    <section class="bg-white rounded-xl p-4 elevated space-y-3">
+      <div class="grid grid-cols-2 gap-2">
+        <input id="customerName" type="text" placeholder="客戶姓名" class="border rounded-lg w-full">
+        <input id="customerPhone" type="tel" placeholder="電話" class="border rounded-lg w-full">
       </div>
+      <div class="grid grid-cols-3 gap-2">
+        <input id="heightCm" type="number" placeholder="高(cm)" class="border rounded-lg w-full">
+        <input id="depthCm" type="number" placeholder="深(cm)" class="border rounded-lg w-full">
+        <input id="widthCm" type="number" placeholder="寬(cm)" class="border rounded-lg w-full">
+      </div>
+      <select id="cabinetKind" class="border rounded-lg w-full">
+        <option value="開門櫃">開門櫃</option>
+        <option value="空櫃">空櫃</option>
+      </select>
     </section>
 
-    <section class="bg-white rounded-2xl elevated p-4 space-y-3">
-      <h2 class="text-sm font-semibold text-slate-700">2. 櫃體規格</h2>
-      <p id="loadStatus" class="text-[11px] text-slate-400">正在同步雲端資料...</p>
-      <div class="grid grid-cols-2 gap-3 text-sm">
-        <input id="cabinetLabel" type="text" class="border rounded-lg px-3 py-2" placeholder="名稱 (如：衣櫃)" />
-        <select id="cabinetKind" class="border rounded-lg px-3 py-2">
-          <option value="開門櫃">開門櫃</option>
-          <option value="空櫃">空櫃</option>
-        </select>
-      </div>
-      <div class="grid grid-cols-3 gap-3 text-sm">
-        <input id="heightCm" type="number" class="border rounded-lg px-3 py-2" placeholder="高 (cm)" />
-        <input id="depthCm" type="number" class="border rounded-lg px-3 py-2" placeholder="深 (cm)" />
-        <input id="widthCm" type="number" class="border rounded-lg px-3 py-2" placeholder="寬 (cm)" />
-      </div>
-      <div class="grid grid-cols-2 gap-3 text-sm">
-        <input id="qtySet" type="number" value="1" class="border rounded-lg px-3 py-2" placeholder="數量" />
-        <p class="text-[11px] text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-100">寬度不足一櫃補一櫃</p>
-      </div>
-
-      <div class="border rounded-2xl p-3 bg-white space-y-3">
-        <p class="text-sm font-semibold text-slate-700">加購配件</p>
-        <div class="border rounded-xl p-3 bg-slate-50">
-          <p class="text-xs font-semibold text-slate-700 mb-2">抽屜 (依深度篩選)</p>
-          <div class="grid grid-cols-3 gap-2">
-            <select id="drawerCode" class="col-span-2 border rounded-lg px-3 py-2 text-sm" disabled><option value="">請輸入深度</option></select>
-            <input id="drawerPerCab" type="number" value="1" class="border rounded-lg px-3 py-2 text-sm" disabled />
-          </div>
-        </div>
-        <div class="border rounded-xl p-3 bg-slate-50">
-          <p class="text-xs font-semibold text-slate-700 mb-2">板材封板</p>
-          <div class="grid grid-cols-3 gap-2">
-            <select id="boardCode" class="col-span-2 border rounded-lg px-3 py-2 text-sm"><option value="">不需要</option></select>
-            <input id="boardQty" type="number" value="0" readonly class="bg-slate-100 border rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div class="mt-2 grid grid-cols-3 gap-2">
-            <input id="boardLenCm" type="number" placeholder="長" class="border rounded-lg px-2 py-1 text-sm" />
-            <input id="boardWidCm" type="number" placeholder="寬" class="border rounded-lg px-2 py-1 text-sm" />
-            <input id="boardPieces" type="number" value="1" class="border rounded-lg px-2 py-1 text-sm" />
-          </div>
-        </div>
-        <div class="border rounded-xl p-3 bg-slate-50">
-          <p class="text-xs font-semibold text-slate-700 mb-2">五金</p>
-          <div class="grid grid-cols-3 gap-2">
-            <select id="hardwareCode" class="col-span-2 border rounded-lg px-3 py-2 text-sm"><option value="">不需要</option></select>
-            <input id="hardwareQty" type="number" value="1" class="border rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <label class="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
-            <input id="hardwareMultiplyCab" type="checkbox" checked /> 數量隨櫃數倍增
-          </label>
+    <section class="bg-white rounded-xl p-4 elevated space-y-4">
+      <p class="font-bold text-slate-700 border-b pb-2">配件選擇</p>
+      
+      <div>
+        <label class="text-xs text-slate-500">抽屜 (自動篩選 A/B 系列)</label>
+        <div class="flex gap-2 mt-1">
+          <select id="drawerCode" class="border rounded-lg flex-1 bg-slate-50" disabled>
+            <option value="">請先輸入深度</option>
+          </select>
+          <input id="drawerPerCab" type="number" value="1" class="border rounded-lg w-16 text-center" placeholder="數量">
         </div>
       </div>
 
-      <div class="border rounded-xl px-3 py-2 bg-slate-50">
-        <p class="text-xs text-slate-500">預覽：<span id="linePreview" class="text-slate-800 font-bold">—</span></p>
+      <div>
+        <label class="text-xs text-slate-500">板材封板</label>
+        <select id="boardCode" class="border rounded-lg w-full mt-1"><option value="">不需要</option></select>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          <input id="boardLen" type="number" placeholder="長" class="border rounded-lg text-sm">
+          <input id="boardWid" type="number" placeholder="寬" class="border rounded-lg text-sm">
+          <input id="boardPcs" type="number" value="1" class="border rounded-lg text-sm">
+        </div>
       </div>
-      <button id="addItemBtn" class="w-full bg-emerald-700 text-white font-bold py-2 rounded-xl shadow-md">加入購物車</button>
     </section>
 
-    <section class="bg-white rounded-2xl elevated p-4 mb-2">
-      <h2 class="text-sm font-semibold text-slate-700 mb-3">3. 購物車內容</h2>
-      <div id="quoteList" class="space-y-3"></div>
-      <div class="border-t mt-3 pt-2 space-y-1 text-sm">
-        <div class="flex justify-between"><span>小計</span><span id="subtotalDisplay">—</span></div>
-        <div class="flex justify-between text-xs text-slate-500"><span>運費/工資補貼 (未滿五萬)</span><span id="ufAmountDisplay">+ $0</span></div>
-        <div class="flex justify-between text-lg font-bold text-emerald-700 border-t pt-2"><span>總額</span><span id="totalDisplay">—</span></div>
-      </div>
-    </section>
+    <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+      <p class="text-xs text-emerald-800">即時計算預覽：</p>
+      <p id="linePreview" class="font-bold text-emerald-900">—</p>
+    </div>
+
+    <button id="addItemBtn" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition">
+      加入購物車
+    </button>
+
+    <div id="cartList" class="space-y-2"></div>
   </main>
 
-  <footer class="fixed bottom-0 left-0 right-0 bg-[#022c22] p-4 border-t border-emerald-900/40">
-    <div class="max-w-md mx-auto flex items-center justify-between">
-      <div class="text-emerald-100">
-        <p class="text-xs">報價總結</p>
-        <p id="footerTotal" class="text-lg font-bold text-emerald-300">—</p>
-      </div>
-      <button id="sendBtn" class="bg-emerald-500 text-emerald-950 font-bold px-8 py-2 rounded-xl active:scale-95">傳送報價</button>
+  <footer class="fixed bottom-0 w-full max-w-md bg-slate-900 p-4 flex justify-between items-center border-t border-slate-700">
+    <div class="text-white">
+      <p class="text-xs text-slate-400">總計金額</p>
+      <p id="totalDisplay" class="text-xl font-bold text-emerald-400">$0</p>
     </div>
+    <button id="sendBtn" class="bg-emerald-500 text-slate-950 px-6 py-2 rounded-lg font-bold">傳送報價</button>
   </footer>
 </div>
 
 <script>
-// 設定 CSV 連結 (加上隨機參數避免緩存)
-const CSV = {
-  CAB: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv",
-  DRA: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv",
-  BOA: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv",
-  HAR: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv"
+// CSV 來源
+const CSV_URLS = {
+  cab: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv",
+  dra: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=1520827127&single=true&output=csv",
+  boa: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=71905260&single=true&output=csv",
+  har: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv"
 };
 
-let dataPool = { cab:[], dra:[], boa:[], har:[] };
-let cartItems = [];
-let userId = null;
+let db = { cab:[], dra:[], boa:[], har:[] };
+let cart = [];
 
-// 自動查找標頭索引
-function getIdx(head) {
-  const f = (k) => head.findIndex(h => k.some(s => h.includes(s)));
-  return { code: f(["編碼","Code"]), name: f(["名稱","Name"]), price: f(["單價","Price"]), unit: f(["單位","Unit"]), h: f(["高度","Height"]), d: f(["深度","Depth"]), w: f(["寬度","Width"]) };
-}
+// 解析 CSV 核心邏輯
+function parseData(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+  
+  // 找出關鍵欄位索引
+  const i = {
+    code: headers.findIndex(h => h.includes("編碼")),
+    name: headers.findIndex(h => h.includes("名稱")),
+    price: headers.findIndex(h => h.includes("單價")),
+    h: headers.findIndex(h => h.includes("高度")),
+    d: headers.findIndex(h => h.includes("深度")),
+    w: headers.findIndex(h => h.includes("寬度"))
+  };
 
-function parseCSV(text) {
-  const rows = text.trim().split("\n").map(r => r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(/^"|"$/g,"").trim()));
-  const idx = getIdx(rows[0]);
-  return rows.slice(1).map(r => ({
-    code: r[idx.code] || "",
-    name: r[idx.name] || "未具名",
-    price: parseInt(String(r[idx.price] || "0").replace(/[^\d]/g,"")) || 0,
-    unit: r[idx.unit] || "",
-    h: parseInt(r[idx.h]) || 0, d: parseInt(r[idx.d]) || 0, w: parseInt(r[idx.w]) || 0
-  })).filter(x => x.code !== "");
-}
-
-async function initData() {
-  try {
-    const fetchWithRand = (url) => fetch(`${url}&r=${Date.now()}`).then(r => r.text());
-    const [c, d, b, h] = await Promise.all([fetchWithRand(CSV.CAB), fetchWithRand(CSV.DRA), fetchWithRand(CSV.BOA), fetchWithRand(CSV.HAR)]);
-    dataPool.cab = parseCSV(c);
-    dataPool.dra = parseCSV(d);
-    dataPool.boa = parseCSV(b);
-    dataPool.har = parseCSV(h);
-    
-    // 填入選單
-    const fill = (id, list) => {
-      document.getElementById(id).innerHTML = `<option value="">不需要</option>` + list.map(x => `<option value="${x.code}">${x.code} | ${x.name} | $${x.price.toLocaleString()}</option>`).join("");
+  return lines.slice(1).map(line => {
+    const cols = line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v => v.replace(/^"|"$/g, '').trim());
+    return {
+      code: cols[i.code] || "",
+      name: cols[i.name] || "未知",
+      price: parseInt(cols[i.price]?.replace(/\D/g,'')) || 0,
+      h: parseInt(cols[i.h]) || 0,
+      d: parseInt(cols[i.d]) || 0,
+      w: parseInt(cols[i.w]) || 0
     };
-    fill("boardCode", dataPool.boa);
-    fill("hardwareCode", dataPool.har);
-    document.getElementById("loadStatus").textContent = "雲端同步完成";
-  } catch(e) { document.getElementById("loadStatus").textContent = "同步失敗，請檢查網路"; }
+  }).filter(item => item.code !== "");
 }
 
-function refreshDrawers() {
-  const D = parseInt(document.getElementById("depthCm").value || "0");
-  const el = document.getElementById("drawerCode");
-  const elQty = document.getElementById("drawerPerCab");
-  if(!D) { el.disabled = elQty.disabled = true; el.innerHTML = `<option value="">請輸入深度</option>`; return; }
-  
-  el.disabled = elQty.disabled = false;
-  const codes = D > 60 ? ["B1","B2","B3"] : ["A1","A2","A3"];
-  const prev = el.value;
-  let html = `<option value="">不需要</option>`;
-  codes.forEach(c => {
-    const row = dataPool.dra.find(x => x.code === c);
-    if(row) html += `<option value="${row.code}">${row.code} | ${row.name} | $${row.price.toLocaleString()}</option>`;
-    else html += `<option value="${c}">${c} | 名稱缺失 (請檢查試算表)</option>`;
-  });
-  el.innerHTML = html;
-  if(codes.includes(prev)) el.value = prev;
+async function loadAllData() {
+  try {
+    const fetchText = (url) => fetch(url + "&t=" + Date.now()).then(r => r.text());
+    const [c, d, b, h] = await Promise.all([fetchText(CSV_URLS.cab), fetchText(CSV_URLS.dra), fetchText(CSV_URLS.boa), fetchText(CSV_URLS.har)]);
+    
+    db.cab = parseData(c);
+    db.dra = parseData(d);
+    db.boa = parseData(b);
+    db.har = parseData(h);
+    
+    // 初始化板材選單
+    const boaEl = document.getElementById("boardCode");
+    db.boa.forEach(item => {
+      boaEl.innerHTML += `<option value="${item.code}">${item.code} | ${item.name}</option>`;
+    });
+    console.log("資料庫載入成功", db);
+  } catch(e) { alert("資料載入失敗，請檢查網路"); }
 }
 
-function calculate() {
-  refreshDrawers();
-  const H = parseInt(document.getElementById("heightCm").value)*10;
-  const D = parseInt(document.getElementById("depthCm").value)*10;
-  const W = parseInt(document.getElementById("widthCm").value)*10;
-  if(!H || !D || !W) return null;
-
-  // 櫃體匹配 (最接近原則)
-  const kind = document.getElementById("cabinetKind").value;
-  const cabList = dataPool.cab.filter(x => x.name.includes(kind));
-  let match = cabList.filter(x => x.h === H).sort((a,b)=>a.d-b.d).find(x => x.d >= D);
-  if(!match) match = cabList.sort((a,b) => Math.abs(a.h-H) - Math.abs(b.h-H))[0];
-
-  const cabQty = Math.ceil(W / (match.w || 100)) * (parseInt(document.getElementById("qtySet").value)||1);
-  const baseAmt = match.price * cabQty;
-
-  // 配件
-  const accs = [];
-  const getRow = (list, code) => list.find(x => x.code === code);
+function updateUI() {
+  const depth = parseInt(document.getElementById("depthCm").value || 0);
+  const draEl = document.getElementById("drawerCode");
   
-  const dCode = document.getElementById("drawerCode").value;
-  if(dCode) {
-    const r = getRow(dataPool.dra, dCode);
-    const q = cabQty * (parseInt(document.getElementById("drawerPerCab").value)||1);
-    if(r) accs.push({ name: r.name, q, amt: r.price * q });
+  if (depth <= 0) {
+    draEl.disabled = true;
+    draEl.innerHTML = '<option value="">請先輸入深度</option>';
+  } else {
+    draEl.disabled = false;
+    const isDeep = depth > 60;
+    const targetCodes = isDeep ? ["B1","B2","B3"] : ["A1","A2","A3"];
+    
+    const currentVal = draEl.value;
+    let html = '<option value="">不需要</option>';
+    
+    targetCodes.forEach(code => {
+      const match = db.dra.find(x => x.code === code);
+      if (match) {
+        html += `<option value="${match.code}">${match.code} | ${match.name} | $${match.price}</option>`;
+      } else {
+        html += `<option value="${code}">${code} | (名稱匹配失敗)</option>`;
+      }
+    });
+    draEl.innerHTML = html;
+    draEl.value = currentVal;
   }
-  const bCode = document.getElementById("boardCode").value;
-  if(bCode) {
-    const r = getRow(dataPool.boa, bCode);
-    const l = parseInt(document.getElementById("boardLenCm").value), w = parseInt(document.getElementById("boardWidCm").value);
-    if(r && l && w) {
-      const q = Math.ceil((l*w)/900) * (parseInt(document.getElementById("boardPieces").value)||1);
-      accs.push({ name: r.name, q, amt: r.price * q });
+  
+  // 計算預覽
+  const result = calcCurrent();
+  document.getElementById("linePreview").textContent = result ? `目前合計: $${result.total.toLocaleString()}` : "等待輸入尺寸...";
+}
+
+function calcCurrent() {
+  const h = parseInt(document.getElementById("heightCm").value) * 10;
+  const d = parseInt(document.getElementById("depthCm").value) * 10;
+  const w = parseInt(document.getElementById("widthCm").value) * 10;
+  if (!h || !d || !w) return null;
+
+  // 1. 櫃體計算
+  const kind = document.getElementById("cabinetKind").value;
+  const pool = db.cab.filter(x => x.name.includes(kind));
+  let match = pool.filter(x => x.h === h).sort((a,b)=>a.d-b.d).find(x => x.d >= d);
+  if(!match) match = pool.sort((a,b) => Math.abs(a.h-h) - Math.abs(b.h-h))[0];
+  
+  const cabCount = Math.ceil(w / (match.w || 100)) * (parseInt(document.getElementById("qtySet").value) || 1);
+  const baseTotal = match.price * cabCount;
+
+  // 2. 抽屜計算
+  let accTotal = 0;
+  let accList = [];
+  const dCode = document.getElementById("drawerCode").value;
+  if (dCode) {
+    const dRow = db.dra.find(x => x.code === dCode);
+    if (dRow) {
+      const q = cabCount * (parseInt(document.getElementById("drawerPerCab").value) || 1);
+      const amt = dRow.price * q;
+      accTotal += amt;
+      accList.push({ name: dRow.name, qty: q, price: dRow.price, amt: amt });
     }
   }
-  const hCode = document.getElementById("hardwareCode").value;
-  if(hCode) {
-    const r = getRow(dataPool.har, hCode);
-    const q = (document.getElementById("hardwareMultiplyCab").checked ? cabQty : 1) * (parseInt(document.getElementById("hardwareQty").value)||1);
-    if(r) accs.push({ name: r.name, q, amt: r.price * q });
+
+  // 3. 板材計算
+  const bCode = document.getElementById("boardCode").value;
+  if (bCode) {
+    const bRow = db.boa.find(x => x.code === bCode);
+    const bl = parseInt(document.getElementById("boardLen").value);
+    const bw = parseInt(document.getElementById("boardWid").value);
+    if (bRow && bl && bw) {
+      const q = Math.ceil((bl * bw) / 900) * (parseInt(document.getElementById("boardPcs").value) || 1);
+      const amt = bRow.price * q;
+      accTotal += amt;
+      accList.push({ name: bRow.name, qty: q, price: bRow.price, amt: amt });
+    }
   }
 
-  const total = baseAmt + accs.reduce((s,x)=>s+x.amt, 0);
-  document.getElementById("linePreview").textContent = `匹配：${match.code} | 小計：$${total.toLocaleString()}`;
-  return { label: document.getElementById("cabinetLabel").value || "櫃體", kind, h:H/10, d:D/10, w:W/10, cabQty, baseAmt, accs, total };
-}
-
-function render() {
-  const list = document.getElementById("quoteList");
-  list.innerHTML = cartItems.map((it,i) => `
-    <div class="border rounded-xl p-3 bg-white relative">
-      <button onclick="cartItems.splice(${i},1);render();" class="absolute top-2 right-2 text-red-500 text-xs font-bold">移除</button>
-      <p class="font-bold text-slate-800">${it.label} (${it.kind})</p>
-      <p class="text-[11px] text-slate-500">${it.h}x${it.d}x${it.w}cm | 櫃數:${it.cabQty} | $${it.baseAmt.toLocaleString()}</p>
-      ${it.accs.map(a => `<p class="text-[11px] text-emerald-600 font-medium">+ ${a.name} x${a.q} = $${a.amt.toLocaleString()}</p>`).join("")}
-      <p class="text-xs font-bold mt-2 text-right border-t pt-1">項目小計：$${it.total.toLocaleString()}</p>
-    </div>
-  `).join("") || `<p class="text-center py-4 text-slate-400 text-xs">購物車尚未加入項目</p>`;
-  
-  const sub = cartItems.reduce((s,x)=>s+x.total, 0);
-  const uf = (sub > 0 && sub < 50000) ? 6000 : 0;
-  document.getElementById("subtotalDisplay").textContent = `$${sub.toLocaleString()}`;
-  document.getElementById("ufAmountDisplay").textContent = `+ $${uf.toLocaleString()}`;
-  document.getElementById("totalDisplay").textContent = document.getElementById("footerTotal").textContent = `$${(sub + uf).toLocaleString()}`;
+  return { 
+    name: document.getElementById("customerName").value || "櫃體",
+    desc: `${h/10}x${d/10}x${w/10}cm (${kind})`,
+    cabCount, 
+    baseTotal, 
+    accList, 
+    total: baseTotal + accTotal 
+  };
 }
 
 document.getElementById("addItemBtn").onclick = () => {
-  const data = calculate();
-  if(!data) return alert("請填寫尺寸");
-  cartItems.push(data);
-  render();
+  const item = calcCurrent();
+  if(!item) return alert("請輸入正確尺寸");
+  cart.push(item);
+  renderCart();
 };
+
+function renderCart() {
+  const listEl = document.getElementById("cartList");
+  listEl.innerHTML = cart.map((item, idx) => `
+    <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-emerald-500 relative">
+      <button onclick="cart.splice(${idx},1);renderCart();" class="absolute right-2 top-2 text-red-400">✕</button>
+      <p class="font-bold text-sm">${item.name} - ${item.desc}</p>
+      <p class="text-xs text-slate-500">櫃數: ${item.cabCount} | 櫃體小計: $${item.baseTotal.toLocaleString()}</p>
+      ${item.accList.map(a => `<p class="text-xs text-emerald-600">+ ${a.name} x${a.qty} = $${a.amt.toLocaleString()}</p>`).join('')}
+      <p class="text-right font-bold text-slate-800 border-t mt-1">$${item.total.toLocaleString()}</p>
+    </div>
+  `).join('');
+
+  const subtotal = cart.reduce((sum, i) => sum + i.total, 0);
+  const extra = (subtotal > 0 && subtotal < 50000) ? 6000 : 0;
+  document.getElementById("totalDisplay").textContent = `$${(subtotal + extra).toLocaleString()}`;
+}
 
 document.getElementById("sendBtn").onclick = async () => {
-  const name = document.getElementById("customerName").value;
-  const phone = document.getElementById("customerPhone").value;
-  if(!name || !phone || !cartItems.length) return alert("請填寫完整資訊");
+  if(cart.length === 0) return alert("購物車是空的");
+  const payload = {
+    customer: document.getElementById("customerName").value,
+    phone: document.getElementById("customerPhone").value,
+    items: cart,
+    finalTotal: document.getElementById("totalDisplay").textContent
+  };
   
-  const payload = { userId, customerName: name, customerPhone: phone, total: cartItems.reduce((s,x)=>s+x.total, 0) + (cartItems.reduce((s,x)=>s+x.total, 0) < 50000 ? 6000 : 0), itemsRaw: JSON.stringify(cartItems) };
-  await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
-  alert("報價已傳送成功！");
-  if(liff.isInClient()) liff.closeWindow();
+  await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9", {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+  });
+  alert("報價單已成功送出！");
+  liff.closeWindow();
 };
 
-// 初始化
+// 啟動
 window.onload = async () => {
   await liff.init({ liffId: "2008590887-zkqDbWqb" });
   if(!liff.isLoggedIn()) liff.login();
-  userId = (await liff.getProfile()).userId;
-  initData();
-};
-
-// 事件監聽
-["heightCm","depthCm","widthCm","cabinetKind","qtySet","drawerCode","drawerPerCab","boardCode","boardLenCm","boardWidCm","boardPieces","hardwareCode","hardwareQty","hardwareMultiplyCab"].forEach(id => {
-  document.getElementById(id).oninput = calculate;
-});
-
-document.getElementById("fontToggleBtn").onclick = () => {
-  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--scale"));
-  const next = cur > 1.5 ? 1.25 : 2.0;
-  document.documentElement.style.setProperty("--scale", next);
-  document.getElementById("fontToggleBtn").textContent = `字體：${next}×`;
+  await loadAllData();
+  
+  // 綁定監聽
+  ["heightCm", "depthCm", "widthCm", "qtySet", "cabinetKind", "drawerCode", "drawerPerCab", "boardCode", "boardLen", "boardWid", "boardPcs"].forEach(id => {
+    document.getElementById(id).oninput = updateUI;
+  });
 };
 </script>
 </body>
