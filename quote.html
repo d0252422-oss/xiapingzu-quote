@@ -14,6 +14,7 @@
     .wood-bg{background-image:linear-gradient(135deg,#D6B28F 0%,#F5DEB3 45%,#C59F7B 100%);}
     .elevated{box-shadow:0 18px 40px rgba(15,23,42,0.25);}
 
+    /* ====== 字體縮放：預設 1.25 倍，可切換到 2 倍 ====== */
     :root{ --scale: 1.25; }
     html{ font-size: calc(16px * var(--scale)); }
 
@@ -62,12 +63,11 @@
     <div class="absolute inset-0 flex flex-col justify-end px-4 pb-4">
       <p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">SYSTEM CABINET QUOTE</p>
       <h1 class="text-2xl font-semibold text-white">拚拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1>
-      <p class="text-[11px] text-emerald-100/80 mt-1">輸入高/深/寬加入購物車｜由 Google Sheet 自動計價</p>
+      <p class="text-[11px] text-emerald-100/80 mt-1">輸入高/深/寬加入購物車｜配件可選（抽屜/板材/五金加工）</p>
     </div>
   </header>
 
-  <!-- MAIN -->
-  <main class="flex-1 overflow-y-auto px-4 pb-48 pt-4 space-y-4">
+  <main class="flex-1 overflow-y-auto px-4 pb-56 pt-4 space-y-4">
 
     <!-- 客戶資訊 -->
     <section class="bg-white rounded-2xl elevated p-4 space-y-3">
@@ -100,7 +100,8 @@
         新增櫃體（輸入高/深/寬）
       </h2>
 
-      <p id="loadStatus" class="text-[11px] text-slate-400">正在從 Google Sheet 載入價目表…</p>
+      <p id="loadStatus" class="text-[11px] text-slate-400">正在載入價目表…</p>
+      <p id="loadStatus2" class="text-[11px] text-slate-400">—</p>
 
       <div class="grid grid-cols-2 gap-3 text-sm">
         <div>
@@ -155,75 +156,84 @@
         </div>
       </div>
 
-      <!-- 配件 -->
-      <div class="border rounded-2xl p-3 bg-white">
-        <div class="flex items-center justify-between">
-          <p class="text-sm font-semibold text-slate-700">配件（可選）</p>
-          <p class="text-[11px] text-slate-500">抽屜依深度限制｜板材多列｜五金多列</p>
-        </div>
-
-        <div class="mt-3 space-y-3">
-
-          <!-- 1) 抽屜 -->
-          <div class="border rounded-xl p-3 bg-slate-50">
-            <p class="text-xs font-semibold text-slate-700 mb-2">1) 抽屜（依深度限制）</p>
-            <div class="grid grid-cols-3 gap-2">
-              <div class="col-span-2">
-                <select id="drawerCode" class="w-full border rounded-lg px-3 py-2 text-sm" disabled>
-                  <option value="">請先輸入深度</option>
-                </select>
-              </div>
-              <div>
-                <input id="drawerQty" type="number" min="1" step="1" value="1"
-                  class="w-full border rounded-lg px-3 py-2 text-sm" disabled />
-              </div>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-2">右側為「抽屜數量」。本項以輸入數量計價（不乘櫃數）。</p>
-          </div>
-
-          <!-- 2) 板材/封板 -->
-          <div class="border rounded-xl p-3 bg-slate-50">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-semibold text-slate-700">2) 板材 / 封板（多列｜獨立計算）</p>
-              <button id="addBoardLineBtn"
-                class="rounded-lg bg-emerald-700 text-white text-[11px] font-semibold px-3 py-2 active:scale-95">
-                + 新增一列
-              </button>
-            </div>
-
-            <div class="mt-2 border rounded-lg p-2 bg-white">
-              <p class="text-[11px] text-slate-600">計算：面積＝長×寬（cm²）｜才數＝面積÷900｜無條件進位｜總才＝（進位才/片）×片數</p>
-            </div>
-
-            <div id="boardLines" class="mt-2 space-y-2"></div>
-            <p id="boardSumHint" class="text-[11px] text-slate-700 mt-2">—</p>
-          </div>
-
-          <!-- 3) 五金（多列） -->
-          <div class="border rounded-xl p-3 bg-slate-50">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-semibold text-slate-700">3) 五金（多列）</p>
-              <button id="addHardwareLineBtn"
-                class="rounded-lg bg-emerald-700 text-white text-[11px] font-semibold px-3 py-2 active:scale-95">
-                + 新增一列
-              </button>
-            </div>
-
-            <div id="hardwareLines" class="mt-2 space-y-2"></div>
-            <p id="hardwareSumHint" class="text-[11px] text-slate-700 mt-2">—</p>
-
-            <p class="text-[11px] text-slate-500 mt-2">每列金額＝單價×數量。本區以輸入數量計價（不乘櫃數）。</p>
-          </div>
-
-          <p id="accWarn" class="hidden text-[11px] text-red-600"></p>
-        </div>
-      </div>
-
       <div class="border rounded-xl px-3 py-2 bg-slate-50">
         <p class="text-xs text-slate-600 font-medium">即時計算</p>
         <p id="matchHint" class="text-[11px] text-slate-500 mt-1">請輸入高/深/寬（cm），系統會自動匹配價目表並計價。</p>
-        <div id="linePreview" class="text-sm font-semibold text-slate-800 mt-1">—</div>
+        <p id="linePreview" class="text-sm font-semibold text-slate-800 mt-1">—</p>
+        <p id="addonPreview" class="text-[11px] text-slate-600 mt-1">配件試算：—</p>
       </div>
+
+      <!-- 配件 -->
+      <section class="border rounded-2xl p-3 bg-white space-y-3">
+        <h3 class="text-sm font-semibold text-slate-700">配件（可選）</h3>
+
+        <!-- 1) 抽屜 -->
+        <div class="border rounded-xl p-3 bg-slate-50 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-slate-700">1) 抽屜</p>
+            <p id="drawerRuleHint" class="text-[11px] text-slate-500">依深度限制選項</p>
+          </div>
+
+          <label class="block text-xs text-slate-500">抽屜型號</label>
+          <select id="drawerCode" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+            <option value="">不需要</option>
+          </select>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-500 mb-1">數量（組）</label>
+              <input id="drawerQty" type="number" min="1" step="1" value="1"
+                class="w-full border rounded-lg px-3 py-2 text-sm bg-white" />
+            </div>
+            <div class="text-xs text-slate-700 bg-white border rounded-lg px-3 py-2">
+              <p>小計</p>
+              <p id="drawerAmount" class="font-semibold text-emerald-700">$0</p>
+            </div>
+          </div>
+          <p id="drawerMeta" class="text-[11px] text-slate-600">—</p>
+        </div>
+
+        <!-- 2) 板材 -->
+        <div class="border rounded-xl p-3 bg-slate-50 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-slate-700">2) 板材封板（才數計價）</p>
+            <p class="text-[11px] text-slate-500">1才 = 900平方公分</p>
+          </div>
+
+          <div id="boardRows" class="space-y-2"></div>
+
+          <button id="addBoardRowBtn" type="button"
+            class="w-full bg-white border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl shadow-sm active:scale-95">
+            + 新增板材列
+          </button>
+
+          <div class="text-xs text-slate-700 bg-white border rounded-lg px-3 py-2">
+            <p>板材小計</p>
+            <p id="boardsAmount" class="font-semibold text-emerald-700">$0</p>
+          </div>
+        </div>
+
+        <!-- 3) 五金/加工 -->
+        <div class="border rounded-xl p-3 bg-slate-50 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-slate-700">3) 五金與加工（多列）</p>
+            <p class="text-[11px] text-slate-500">依數量計價</p>
+          </div>
+
+          <div id="hwRows" class="space-y-2"></div>
+
+          <button id="addHwRowBtn" type="button"
+            class="w-full bg-white border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl shadow-sm active:scale-95">
+            + 新增五金/加工列
+          </button>
+
+          <div class="text-xs text-slate-700 bg-white border rounded-lg px-3 py-2">
+            <p>五金/加工小計</p>
+            <p id="hwAmount" class="font-semibold text-emerald-700">$0</p>
+          </div>
+        </div>
+
+      </section>
 
       <button id="addItemBtn"
         class="w-full mt-2 bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl shadow-md active:scale-95">
@@ -235,7 +245,7 @@
     <section class="bg-white rounded-2xl elevated p-4 space-y-3 mb-2">
       <h2 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
         <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] text-white">3</span>
-        購物車（櫃體）
+        購物車（櫃體＋配件）
       </h2>
 
       <div id="quoteList" class="space-y-2 text-sm">
@@ -280,9 +290,7 @@
 </div>
 
 <script>
-/* =======================
-   Google Sheet CSV（固定 gid）
-   ======================= */
+/* ========= CSV 連結 ========= */
 const CABINETS_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
 
@@ -295,32 +303,18 @@ const BOARDS_CSV =
 const HARDWARES_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv";
 
-/* 櫃體表：高度/深度/寬度 mm，使用者輸入 cm -> ×10 */
+/* 你提供的表：高度/深度/寬度皆為 mm；使用者輸入 cm，所以需 ×10 */
 const CM_TO_MM = 10;
+/* 板材：1 才 = 900 平方公分 */
+const ONE_CAI_AREA_CM2 = 900;
 
-/* 1 才 = 900 cm² */
-const CAI_CM2 = 900;
+let cabinetRows = [];   // 櫃體
+let drawerRows = [];    // 抽屜
+let boardRows = [];     // 板材
+let hardwareRows = [];  // 五金/加工
 
-/* 抽屜深度規則（你已改為 A/B 編碼） */
-const DRAWER_CODES_SHALLOW = ["A1","A2","A3"]; // 深度 <= 60cm
-const DRAWER_CODES_DEEP    = ["B1","B2","B3"]; // 深度 > 60cm
-
-let cabinetRows = [];
-let drawersRows = [];
-let boardsRows = [];
-let hardwaresRows = [];
 let cartItems = [];
 let userId = null;
-
-/* 板材多列暫存 */
-let boardLines = []; // {id, code, lenCm, widCm, pieces}
-let boardLineSeq = 1;
-let boardOptionsHtml = "";
-
-/* 五金多列暫存 */
-let hardwareLines = []; // {id, code, qty}
-let hardwareLineSeq = 1;
-let hardwareOptionsHtml = "";
 
 /* ===== 字體切換（1.25x / 2x）===== */
 const SCALE_SMALL = 1.25;
@@ -347,104 +341,81 @@ function toggleScale(){
   else applyScale(SCALE_LARGE);
 }
 
-/* utils */
+/* ===== CSV ===== */
 function parseCSV(text){
   const quotes=/^"|"$/g;
-  return text
-    .replace(/\uFEFF/g,"") // 去 BOM
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-    .map(r =>
-      r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,"").trim())
-    );
+  return text.trim().split(/\r?\n/).map(r =>
+    r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v=>v.replace(quotes,"").trim())
+  );
 }
-function escapeHtml(str){
-  return String(str || "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-function money(n){ return `$${(n||0).toLocaleString()}`; }
-function normUnit(u){ return String(u||"").trim(); }
-function roundCeilInt(x){ return Math.ceil(x - 1e-12); }
 
 async function fetchCsv(url){
-  const res = await fetch(url + "&rand=" + Math.random());
-  if(!res.ok) throw new Error(`CSV 讀取失敗（HTTP ${res.status}）：${url}`);
-  const text = (await res.text()).replace(/\uFEFF/g,"");
-  // 用 parse 後確認表頭，而不是只用 includes（避免隱藏字元造成誤判）
-  const rows = parseCSV(text);
-  const header = rows[0] || [];
-  const headerNorm = header.map(h => String(h||"").replace(/\uFEFF/g,"").trim().replace(/\s+/g,""));
-  if(!headerNorm.includes("編碼")){
-    throw new Error(
-      "CSV 表頭未包含「編碼」，常見原因：未發佈、gid 錯誤、或表頭不同。\n" +
-      "目前表頭：" + header.join("｜") + "\n連結：" + url
-    );
+  const finalUrl = url + (url.includes("?") ? "&" : "?") + "rand=" + Math.random();
+  const res = await fetch(finalUrl, { method:"GET" });
+  if(!res.ok){
+    const t = await res.text().catch(()=> "");
+    const hint = (t && t.length) ? t.slice(0,200) : "";
+    const err = new Error(`HTTP ${res.status} ${res.statusText}`);
+    err.status = res.status;
+    err.url = url;
+    err.hint = hint;
+    throw err;
   }
-  return text;
+  return await res.text();
 }
 
-function findByCode(rows, code){
-  return rows.find(x => (x.code || "").trim() === (code || "").trim()) || null;
+function headerIndex(headerArr, key){
+  const norm = headerArr.map(h => String(h||"").replace(/\uFEFF/g,"").trim().replace(/\s+/g,""));
+  const i = norm.indexOf(key);
+  return i;
 }
 
-/* 強化版：容錯表頭（去 BOM / trim / 去空白） */
-async function loadSimpleTabFromUrl(url){
+async function loadSimpleTab(url){
   const text = await fetchCsv(url);
   const rows = parseCSV(text);
   if(!rows.length) throw new Error("CSV 空資料：" + url);
 
-  const headerRaw = rows[0].map(h => String(h||"").replace(/\uFEFF/g,"").trim());
-  const headerKey = headerRaw.map(h => h.replace(/\s+/g,""));
-
-  const col = (name) => headerKey.findIndex(h => h === name);
-
-  const idxCode  = col("編碼");
-  const idxName  = col("名稱");
-  const idxUnit  = col("單位");
-  const idxPrice = col("單價");
-  const idxType  = col("類型");
+  const header = rows[0].map(x=>String(x||"").replace(/\uFEFF/g,"").trim());
+  const idxCode  = headerIndex(header, "編碼");
+  const idxName  = headerIndex(header, "名稱");
+  const idxUnit  = headerIndex(header, "單位");
+  const idxPrice = headerIndex(header, "單價");
+  const idxType  = headerIndex(header, "類型");
 
   if([idxCode, idxName, idxUnit, idxPrice, idxType].some(i => i < 0)){
     throw new Error(
-      "表頭欄位不足或名稱不一致，請確認包含：編碼/名稱/單位/單價/類型。\n" +
-      "目前表頭：" + headerRaw.join("｜") + "\n連結：" + url
+      "表頭欄位不足（需要：編碼/名稱/單位/單價/類型）。\n" +
+      "目前表頭：" + header.join("｜") + "\n連結：" + url
     );
   }
 
   return rows.slice(1).map(r => {
-    const code = (r[idxCode]  || "").trim();
-    const name = (r[idxName]  || "").trim();
-    const unit = (r[idxUnit]  || "").trim();
+    const code = (r[idxCode] || "").trim();
+    const name = (r[idxName] || "").trim();
+    const unit = (r[idxUnit] || "").trim();
     const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
-    const type = (r[idxType]  || "").trim();
+    const type  = (r[idxType] || "").trim();
     return { code, name, unit, price, type };
   }).filter(x => x.code);
 }
 
-/* load cabinets */
-async function loadCabinets(){
+/* ===== 櫃體表：高度/深度/寬度皆以 mm 存放 ===== */
+async function loadCabinetSheet(){
   const text = await fetchCsv(CABINETS_CSV);
   const rows = parseCSV(text);
-  const header = rows[0].map(h=>String(h||"").replace(/\uFEFF/g,"").trim());
+  const header = rows[0].map(x=>String(x||"").replace(/\uFEFF/g,"").trim());
 
-  const idx = (name)=>header.findIndex(h=>h.replace(/\s+/g,"")===name);
-
-  const idxCode  = idx("編碼");
-  const idxName  = idx("名稱");
-  const idxH     = idx("高度");
-  const idxD     = idx("深度");
-  const idxW     = idx("寬度");
-  const idxPrice = idx("單價");
-  const idxType  = idx("類型");
+  const idxCode  = headerIndex(header,"編碼");
+  const idxName  = headerIndex(header,"名稱");
+  const idxH     = headerIndex(header,"高度");
+  const idxD     = headerIndex(header,"深度");
+  const idxW     = headerIndex(header,"寬度");
+  const idxPrice = headerIndex(header,"單價");
+  const idxType  = headerIndex(header,"類型");
 
   if([idxCode,idxName,idxH,idxD,idxW,idxPrice,idxType].some(i=>i<0)){
     throw new Error(
-      "cabinet 表頭欄位不足，請確認包含：編碼/名稱/高度/深度/寬度/單價/類型\n" +
+      "櫃體表表頭欄位不足（需要：編碼/名稱/高度/深度/寬度/單價/類型）。\n" +
       "目前表頭：" + header.join("｜")
     );
   }
@@ -452,30 +423,38 @@ async function loadCabinets(){
   cabinetRows = rows.slice(1).map(r => {
     const code = (r[idxCode] || "").trim();
     const name = (r[idxName] || "").trim();
+
     const heightMm = parseInt((r[idxH] || "0").replace(/[^0-9]/g,""), 10) || 0;
     const depthMm  = parseInt((r[idxD] || "0").replace(/[^0-9]/g,""), 10) || 0;
     const widthMm  = parseInt((r[idxW] || "0").replace(/[^0-9]/g,""), 10) || 0;
+
     const price = parseInt((r[idxPrice] || "0").toString().replace(/[^0-9]/g,""), 10) || 0;
     const type  = (r[idxType] || "").trim();
+
     return { code, name, heightMm, depthMm, widthMm, price, type };
   }).filter(x =>
-    x.code && x.type === "櫃體" && x.price > 0 && x.heightMm > 0 && x.depthMm > 0 && x.widthMm > 0
+    x.code &&
+    x.type === "櫃體" &&
+    x.price > 0 &&
+    x.heightMm > 0 &&
+    x.depthMm > 0 &&
+    x.widthMm > 0
   );
 }
 
-/* cabinet count */
+/* ===== 櫃數計算：mm 整數運算（不足一櫃補一櫃） ===== */
 function calcCabinetCount(totalWidthMm, baseWidthMm){
   const total = parseInt(totalWidthMm || "0", 10);
   const base  = parseInt(baseWidthMm  || "0", 10);
   if(!(total > 0 && base > 0)) return 0;
-  const q = Math.floor(total / base);
-  const r = total % base;
-  return q + (r > 0 ? 1 : 0);
+  const quotient  = Math.floor(total / base);
+  const remainder = total % base;
+  return quotient + (remainder > 0 ? 1 : 0);
 }
 
-/* match rule */
+/* ===== 匹配 ===== */
 function findBestRate(kind, inputHeightMm, inputDepthMm){
-  const poolKind = cabinetRows.filter(x => (x.name || "").includes(kind));
+  const poolKind = cabinetRows.filter(x => x.name.includes(kind));
   const candidates = poolKind.length ? poolKind : cabinetRows;
 
   let heightPool = candidates.filter(x => x.heightMm === inputHeightMm);
@@ -489,40 +468,20 @@ function findBestRate(kind, inputHeightMm, inputDepthMm){
   const depthSorted = heightPool.slice().sort((a,b)=>a.depthMm-b.depthMm);
   let best = depthSorted.find(x => x.depthMm >= inputDepthMm);
   if(!best) best = depthSorted[depthSorted.length-1] || null;
+
   return best;
 }
 
-/* ===== 板材/封板：算才數（長×寬 / 900，無條件進位） ===== */
-function calcCaiByLenWid(lenCm, widCm){
-  const L = parseFloat(lenCm || "0");
-  const W = parseFloat(widCm || "0");
-  if(!(L > 0 && W > 0)) return { area:0, raw:0, ceil:0 };
-  const area = L * W;
-  const raw = area / CAI_CM2;
-  const ceil = roundCeilInt(raw);
-  return { area, raw, ceil };
-}
-
-/* ===== UI elements ===== */
+/* ===== DOM ===== */
 const cabinetKindEl = document.getElementById("cabinetKind");
 const heightEl = document.getElementById("heightCm");
 const depthEl  = document.getElementById("depthCm");
 const widthEl  = document.getElementById("widthCm");
 const qtySetEl = document.getElementById("qtySet");
 
-const drawerCodeEl = document.getElementById("drawerCode");
-const drawerQtyEl = document.getElementById("drawerQty");
-
-const boardLinesEl = document.getElementById("boardLines");
-const boardSumHintEl = document.getElementById("boardSumHint");
-
-const hardwareLinesEl = document.getElementById("hardwareLines");
-const hardwareSumHintEl = document.getElementById("hardwareSumHint");
-
-const loadStatus = document.getElementById("loadStatus");
 const matchHint = document.getElementById("matchHint");
 const linePreview = document.getElementById("linePreview");
-const accWarn = document.getElementById("accWarn");
+const addonPreview = document.getElementById("addonPreview");
 
 const quoteList = document.getElementById("quoteList");
 const subtotalDisplay = document.getElementById("subtotalDisplay");
@@ -530,408 +489,357 @@ const ufAmountDisplay = document.getElementById("ufAmountDisplay");
 const totalDisplay = document.getElementById("totalDisplay");
 const footerTotal = document.getElementById("footerTotal");
 
+const drawerCodeEl = document.getElementById("drawerCode");
+const drawerQtyEl = document.getElementById("drawerQty");
+const drawerAmountEl = document.getElementById("drawerAmount");
+const drawerMetaEl = document.getElementById("drawerMeta");
+const drawerRuleHint = document.getElementById("drawerRuleHint");
+
+const boardRowsEl = document.getElementById("boardRows");
+const boardsAmountEl = document.getElementById("boardsAmount");
+
+const hwRowsEl = document.getElementById("hwRows");
+const hwAmountEl = document.getElementById("hwAmount");
+
 let currentMatch = null;
 let currentComputed = null;
 
-function setWarn(msg){
-  if(msg){
-    accWarn.classList.remove("hidden");
-    accWarn.textContent = msg;
-  }else{
-    accWarn.classList.add("hidden");
-    accWarn.textContent = "";
-  }
+function money(n){ return `$${(n||0).toLocaleString()}`; }
+
+function findByCode(list, code){
+  const c = String(code||"").trim();
+  return list.find(x => String(x.code||"").trim() === c) || null;
 }
 
-/* ===== options builders ===== */
-function buildBoardOptions(){
-  boardOptionsHtml =
-    `<option value="">不需要</option>` +
-    boardsRows.filter(x=>x.price>0).map(x =>
-      `<option value="${escapeHtml(x.code)}">${escapeHtml(x.code)}｜${escapeHtml(x.name || "（名稱缺失）")}｜${money(x.price)} / ${escapeHtml(x.unit||"")}</option>`
-    ).join("");
-}
-function buildHardwareOptions(){
-  hardwareOptionsHtml =
-    `<option value="">不需要</option>` +
-    hardwaresRows.filter(x=>x.price>0).map(x =>
-      `<option value="${escapeHtml(x.code)}">${escapeHtml(x.code)}｜${escapeHtml(x.name || "（名稱缺失）")}｜${money(x.price)} / ${escapeHtml(x.unit||"")}（${escapeHtml(x.type||"")}）</option>`
-    ).join("");
+/* ===== 抽屜：依深度限制 ===== */
+function allowedDrawerCodes(depthCm){
+  const d = parseFloat(depthCm || "0");
+  if(d > 60) return ["B1","B2","B3"];
+  return ["A1","A2","A3"];
 }
 
-/* ===== 板材多列 ===== */
-function addBoardLine(preset){
-  const id = "b" + (boardLineSeq++);
-  boardLines.push({
-    id,
-    code: preset?.code || "",
-    lenCm: preset?.lenCm ?? "",
-    widCm: preset?.widCm ?? "",
-    pieces: preset?.pieces ?? 1
-  });
+function refreshDrawerOptions(){
+  const Dcm = parseFloat(depthEl.value || "0");
+  const codes = allowedDrawerCodes(Dcm);
+
+  drawerRuleHint.textContent = (Dcm > 60)
+    ? "深度 > 60：僅可選 B1/B2/B3"
+    : "深度 ≤ 60：僅可選 A1/A2/A3";
+
+  const keep = drawerCodeEl.value;
+  drawerCodeEl.innerHTML = `<option value="">不需要</option>` + codes.map(code=>{
+    const row = findByCode(drawerRows, code);
+    const name = row?.name || "（價目表未載入或名稱缺失）";
+    return `<option value="${code}">${code}｜${name}</option>`;
+  }).join("");
+
+  if(keep && codes.includes(keep)) drawerCodeEl.value = keep;
+  else drawerCodeEl.value = "";
+
+  updateAddonPreview();
+}
+
+function calcDrawer(){
+  const code = drawerCodeEl.value.trim();
+  if(!code) return { code:"", qty:0, unit:"", unitPrice:0, name:"", amount:0 };
+
+  const row = findByCode(drawerRows, code);
+  const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
+  const unitPrice = row?.price || 0;
+  const amount = unitPrice * qty;
+  return { code, qty, unit: row?.unit || "組", unitPrice, name: row?.name || "", amount };
+}
+
+/* ===== 板材：多列（才數=ceil(長*寬*片數/900)） ===== */
+let boardRowId = 0;
+let boardLines = []; // {id, code, lengthCm, widthCm, pieces}
+
+function addBoardLine(){
+  boardLines.push({ id: ++boardRowId, code:"", lengthCm:"", widthCm:"", pieces:"1" });
   renderBoardLines();
-  updateMatchAndPreview();
+  updateAddonPreview();
 }
 function removeBoardLine(id){
-  boardLines = boardLines.filter(x=>x.id !== id);
+  boardLines = boardLines.filter(x => x.id !== id);
   renderBoardLines();
-  updateMatchAndPreview();
+  updateAddonPreview();
 }
 function renderBoardLines(){
   if(!boardLines.length){
-    boardLinesEl.innerHTML = `
-      <div class="border rounded-lg p-3 bg-white">
-        <p class="text-[11px] text-slate-500">尚未新增板材/封板。可按右上「新增一列」。</p>
-      </div>
-    `;
-    boardSumHintEl.textContent = "—";
+    boardRowsEl.innerHTML = `<p class="text-[11px] text-slate-500">尚未新增板材列（可按「新增板材列」）。</p>`;
     return;
   }
 
-  boardLinesEl.innerHTML = boardLines.map(line=>`
-    <div class="border rounded-xl p-3 bg-white" data-id="${escapeHtml(line.id)}">
-      <div class="flex items-start justify-between gap-2">
-        <div class="flex-1 space-y-2">
-          <select class="boardCode w-full border rounded-lg px-3 py-2 text-sm" data-id="${escapeHtml(line.id)}">
-            ${boardOptionsHtml}
-          </select>
+  const options = boardRows
+    .filter(x => x.price > 0)
+    .map(x => `<option value="${x.code}">${x.code}｜${x.name}（${x.unit} $${x.price}）</option>`)
+    .join("");
 
-          <div class="grid grid-cols-3 gap-2">
-            <div>
-              <label class="block text-[11px] text-slate-600 mb-1">長（cm）</label>
-              <input class="boardLen w-full border rounded-lg px-3 py-2 text-sm" data-id="${escapeHtml(line.id)}"
-                type="number" min="0" step="0.1" placeholder="例如：40" value="${escapeHtml(line.lenCm)}">
-            </div>
-            <div>
-              <label class="block text-[11px] text-slate-600 mb-1">寬（cm）</label>
-              <input class="boardWid w-full border rounded-lg px-3 py-2 text-sm" data-id="${escapeHtml(line.id)}"
-                type="number" min="0" step="0.1" placeholder="例如：40" value="${escapeHtml(line.widCm)}">
-            </div>
-            <div>
-              <label class="block text-[11px] text-slate-600 mb-1">片數</label>
-              <input class="boardPieces w-full border rounded-lg px-3 py-2 text-sm" data-id="${escapeHtml(line.id)}"
-                type="number" min="1" step="1" value="${escapeHtml(line.pieces)}">
-            </div>
+  boardRowsEl.innerHTML = boardLines.map(line=>{
+    return `
+      <div class="border rounded-xl p-2 bg-white">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="col-span-2">
+            <label class="block text-xs text-slate-500 mb-1">板材品項</label>
+            <select data-k="code" data-id="${line.id}" class="w-full border rounded-lg px-3 py-2 bg-white">
+              <option value="">請選擇</option>
+              ${options}
+            </select>
           </div>
 
-          <div class="border rounded-lg p-2 bg-slate-50">
-            <p class="text-[11px] text-slate-700 boardLineHint" data-id="${escapeHtml(line.id)}">—</p>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">長（cm）</label>
+            <input data-k="lengthCm" data-id="${line.id}" type="number" min="0" step="0.1"
+              class="w-full border rounded-lg px-3 py-2 bg-white" placeholder="例如：40" value="${line.lengthCm}">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">寬（cm）</label>
+            <input data-k="widthCm" data-id="${line.id}" type="number" min="0" step="0.1"
+              class="w-full border rounded-lg px-3 py-2 bg-white" placeholder="例如：40" value="${line.widthCm}">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">片數</label>
+            <input data-k="pieces" data-id="${line.id}" type="number" min="1" step="1"
+              class="w-full border rounded-lg px-3 py-2 bg-white" value="${line.pieces || "1"}">
+          </div>
+          <div class="text-xs text-slate-700 bg-slate-50 border rounded-lg px-3 py-2">
+            <p>才數 / 小計</p>
+            <p id="boardLineMeta_${line.id}" class="font-semibold text-emerald-700">—</p>
+          </div>
+
+          <div class="col-span-2">
+            <button type="button" data-del="${line.id}" class="w-full text-red-600 border border-red-200 bg-white rounded-xl font-semibold active:scale-95">
+              刪除此列
+            </button>
           </div>
         </div>
-
-        <button class="removeBoardLine text-red-500 text-[11px] font-semibold px-2 py-1" data-id="${escapeHtml(line.id)}">刪除</button>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
-  boardLines.forEach(line=>{
-    const sel = boardLinesEl.querySelector(`select.boardCode[data-id="${CSS.escape(line.id)}"]`);
-    if(sel) sel.value = line.code || "";
+  // bind
+  boardRowsEl.querySelectorAll("select[data-k], input[data-k]").forEach(el=>{
+    el.oninput = () => {
+      const id = parseInt(el.dataset.id, 10);
+      const k = el.dataset.k;
+      const line = boardLines.find(x => x.id === id);
+      if(!line) return;
+      line[k] = el.value;
+      updateAddonPreview();
+      renderBoardLineMeta(id);
+    };
+    // 初始化 select value
+    if(el.tagName === "SELECT"){
+      const id = parseInt(el.dataset.id, 10);
+      const line = boardLines.find(x => x.id === id);
+      if(line) el.value = line.code || "";
+    }
   });
 
-  refreshBoardLinesHints();
+  boardRowsEl.querySelectorAll("button[data-del]").forEach(btn=>{
+    btn.onclick = () => removeBoardLine(parseInt(btn.dataset.del,10));
+  });
+
+  // render metas
+  boardLines.forEach(l => renderBoardLineMeta(l.id));
 }
 
 function calcBoardLine(line){
-  const code = (line.code || "").trim();
-  if(!code) return { ok:true, empty:true, totalCai:0, amount:0, msg:"未選擇品項" };
-
-  const row = findByCode(boardsRows, code);
+  const code = String(line.code||"").trim();
+  const row = code ? findByCode(boardRows, code) : null;
   const unitPrice = row?.price || 0;
-  const unit = row?.unit || "";
-  const name = row?.name || "（名稱缺失，請檢查 boards 的「名稱」欄）";
 
+  const L = parseFloat(line.lengthCm || "0");
+  const W = parseFloat(line.widthCm || "0");
   const pieces = Math.max(1, parseInt(line.pieces || "1", 10));
-  const { area, raw, ceil } = calcCaiByLenWid(line.lenCm, line.widCm);
 
-  if(!(area > 0)){
-    return {
-      ok:false, empty:false,
-      code, name, unitPrice, unit,
-      totalCai:0, amount:0,
-      msg:"已選擇品項，但長或寬未輸入（此列暫以 0 才計）",
-      spec:{ pieces, areaCm2:0, rawCai:0, ceilCaiPerPiece:0 }
-    };
-  }
-
-  const totalCai = ceil * pieces;
-  const amount = unitPrice * totalCai;
-
-  let unitWarn = "";
-  if(normUnit(unit) && normUnit(unit) !== "才"){
-    unitWarn = `｜注意：表內單位為「${unit}」，目前仍以「才數」計價請確認`;
-  }
-
-  const msg =
-    `面積=${area.toFixed(2)}cm²，÷900=${raw.toFixed(4)}才 → 進位 ${ceil}才/片 × ${pieces}片 = ${totalCai}才｜${money(unitPrice)}×${totalCai}=${money(amount)}${unitWarn}`;
+  const area = (L>0 && W>0) ? (L * W * pieces) : 0; // cm2
+  const cai = area > 0 ? Math.ceil(area / ONE_CAI_AREA_CM2) : 0;
+  const amount = cai * unitPrice;
 
   return {
-    ok:true, empty:false,
-    code, name, unitPrice, unit,
-    totalCai, amount,
-    msg,
-    spec:{ pieces, areaCm2:area, rawCai:raw, ceilCaiPerPiece:ceil }
+    code,
+    name: row?.name || "",
+    unit: row?.unit || "才",
+    unitPrice,
+    lengthCm: L,
+    widthCm: W,
+    pieces,
+    areaCm2: area,
+    cai,
+    amount
   };
 }
 
-function refreshBoardLinesHints(){
-  let sumCai = 0;
-  let sumAmount = 0;
-  const warns = [];
+function renderBoardLineMeta(id){
+  const line = boardLines.find(x => x.id === id);
+  if(!line) return;
+  const r = calcBoardLine(line);
+  const el = document.getElementById(`boardLineMeta_${id}`);
+  if(!el) return;
 
-  boardLines.forEach(line=>{
-    const res = calcBoardLine(line);
-    const hintEl = boardLinesEl.querySelector(`.boardLineHint[data-id="${CSS.escape(line.id)}"]`);
-    if(hintEl) hintEl.textContent = res.msg || "—";
-
-    if(!res.empty){
-      sumCai += (res.totalCai || 0);
-      sumAmount += (res.amount || 0);
-
-      if(!res.ok && res.msg) warns.push(res.msg);
-      if(res.unit && normUnit(res.unit) !== "才"){
-        warns.push(`板材 ${res.code} 單位為「${res.unit}」，非才；請確認 boards 分頁單位`);
-      }
-      if(!findByCode(boardsRows, (line.code||"").trim()) && (line.code||"").trim()){
-        warns.push(`板材/封板編碼 ${line.code} 在 boards 分頁找不到（此列以 $0 計）`);
-      }
-    }
-  });
-
-  boardSumHintEl.textContent =
-    boardLines.length
-      ? `板材合計：${sumCai} 才｜小計 ${money(sumAmount)}`
-      : "—";
-
-  return { sumCai, sumAmount, warns };
+  if(!r.code){
+    el.textContent = "請先選品項";
+    return;
+  }
+  if(!(r.lengthCm>0 && r.widthCm>0)){
+    el.textContent = `—`;
+    return;
+  }
+  el.textContent = `${r.cai} 才｜${money(r.amount)}`;
 }
 
-/* ===== 五金多列 ===== */
-function addHardwareLine(preset){
-  const id = "h" + (hardwareLineSeq++);
-  hardwareLines.push({
-    id,
-    code: preset?.code || "",
-    qty: preset?.qty ?? 1
-  });
-  renderHardwareLines();
-  updateMatchAndPreview();
+/* ===== 五金/加工：多列 ===== */
+let hwRowId = 0;
+let hwLines = []; // {id, code, qty}
+
+function addHwLine(){
+  hwLines.push({ id: ++hwRowId, code:"", qty:"1" });
+  renderHwLines();
+  updateAddonPreview();
 }
-function removeHardwareLine(id){
-  hardwareLines = hardwareLines.filter(x=>x.id !== id);
-  renderHardwareLines();
-  updateMatchAndPreview();
+function removeHwLine(id){
+  hwLines = hwLines.filter(x => x.id !== id);
+  renderHwLines();
+  updateAddonPreview();
 }
-function renderHardwareLines(){
-  if(!hardwareLines.length){
-    hardwareLinesEl.innerHTML = `
-      <div class="border rounded-lg p-3 bg-white">
-        <p class="text-[11px] text-slate-500">尚未新增五金。可按右上「新增一列」。</p>
-      </div>
-    `;
-    hardwareSumHintEl.textContent = "—";
+
+function renderHwLines(){
+  if(!hwLines.length){
+    hwRowsEl.innerHTML = `<p class="text-[11px] text-slate-500">尚未新增五金/加工列（可按「新增五金/加工列」）。</p>`;
     return;
   }
 
-  hardwareLinesEl.innerHTML = hardwareLines.map(line=>`
-    <div class="border rounded-xl p-3 bg-white" data-id="${escapeHtml(line.id)}">
-      <div class="flex items-start justify-between gap-2">
-        <div class="flex-1 space-y-2">
-          <div class="grid grid-cols-3 gap-2">
-            <div class="col-span-2">
-              <select class="hardwareCode w-full border rounded-lg px-3 py-2 text-sm" data-id="${escapeHtml(line.id)}">
-                ${hardwareOptionsHtml}
-              </select>
-            </div>
-            <div>
-              <input class="hardwareQty w-full border rounded-lg px-3 py-2 text-sm" data-id="${escapeHtml(line.id)}"
-                type="number" min="1" step="1" value="${escapeHtml(line.qty)}">
-            </div>
+  // 依類型分組（五金/加工/電料...），方便挑選
+  const groups = {};
+  hardwareRows.forEach(x=>{
+    const g = x.type || "其他";
+    if(!groups[g]) groups[g] = [];
+    groups[g].push(x);
+  });
+
+  const optionHtml = Object.keys(groups).sort().map(g=>{
+    const opts = groups[g].map(x=>(
+      `<option value="${x.code}">${x.code}｜${x.name}（${x.unit} $${x.price}）</option>`
+    )).join("");
+    return `<optgroup label="${g}">${opts}</optgroup>`;
+  }).join("");
+
+  hwRowsEl.innerHTML = hwLines.map(line=>{
+    return `
+      <div class="border rounded-xl p-2 bg-white">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="col-span-2">
+            <label class="block text-xs text-slate-500 mb-1">品項</label>
+            <select data-k="code" data-id="${line.id}" class="w-full border rounded-lg px-3 py-2 bg-white">
+              <option value="">請選擇</option>
+              ${optionHtml}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">數量</label>
+            <input data-k="qty" data-id="${line.id}" type="number" min="0" step="1"
+              class="w-full border rounded-lg px-3 py-2 bg-white" value="${line.qty || "1"}">
+          </div>
+          <div class="text-xs text-slate-700 bg-slate-50 border rounded-lg px-3 py-2">
+            <p>單位 / 小計</p>
+            <p id="hwLineMeta_${line.id}" class="font-semibold text-emerald-700">—</p>
           </div>
 
-          <div class="border rounded-lg p-2 bg-slate-50">
-            <p class="text-[11px] text-slate-700 hardwareLineHint" data-id="${escapeHtml(line.id)}">—</p>
+          <div class="col-span-2">
+            <button type="button" data-del="${line.id}" class="w-full text-red-600 border border-red-200 bg-white rounded-xl font-semibold active:scale-95">
+              刪除此列
+            </button>
           </div>
         </div>
-
-        <button class="removeHardwareLine text-red-500 text-[11px] font-semibold px-2 py-1" data-id="${escapeHtml(line.id)}">刪除</button>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
-  hardwareLines.forEach(line=>{
-    const sel = hardwareLinesEl.querySelector(`select.hardwareCode[data-id="${CSS.escape(line.id)}"]`);
-    if(sel) sel.value = line.code || "";
-  });
-
-  refreshHardwareLinesHints();
-}
-
-function calcHardwareLine(line){
-  const code = (line.code || "").trim();
-  if(!code) return { ok:true, empty:true, qty:0, amount:0, msg:"未選擇品項" };
-
-  const row = findByCode(hardwaresRows, code);
-  if(!row){
-    return {
-      ok:false, empty:false,
-      code, name:"（名稱缺失）", unitPrice:0, unit:"",
-      qty: Math.max(1, parseInt(line.qty || "1", 10)),
-      amount: 0,
-      msg:`五金編碼 ${code} 在 hardwares 分頁找不到（此列以 $0 計）`
+  hwRowsEl.querySelectorAll("select[data-k], input[data-k]").forEach(el=>{
+    el.oninput = () => {
+      const id = parseInt(el.dataset.id,10);
+      const k = el.dataset.k;
+      const line = hwLines.find(x => x.id === id);
+      if(!line) return;
+      line[k] = el.value;
+      updateAddonPreview();
+      renderHwLineMeta(id);
     };
-  }
-
-  const unitPrice = row.price || 0;
-  const unit = row.unit || "";
-  const name = row.name || "（名稱缺失，請檢查 hardwares 的「名稱」欄）";
-  const qty = Math.max(1, parseInt(line.qty || "1", 10));
-  const amount = unitPrice * qty;
-
-  const msg = `${money(unitPrice)} × ${qty}${unit ? unit : ""} = ${money(amount)}（${row.type || "五金"}）`;
-  return { ok:true, empty:false, code, name, unitPrice, unit, qty, amount, msg };
-}
-
-function refreshHardwareLinesHints(){
-  let sumAmount = 0;
-  const warns = [];
-
-  hardwareLines.forEach(line=>{
-    const res = calcHardwareLine(line);
-    const hintEl = hardwareLinesEl.querySelector(`.hardwareLineHint[data-id="${CSS.escape(line.id)}"]`);
-    if(hintEl) hintEl.textContent = res.msg || "—";
-
-    if(!res.empty){
-      sumAmount += (res.amount || 0);
-      if(!res.ok && res.msg) warns.push(res.msg);
+    if(el.tagName === "SELECT"){
+      const id = parseInt(el.dataset.id,10);
+      const line = hwLines.find(x => x.id === id);
+      if(line) el.value = line.code || "";
     }
   });
 
-  hardwareSumHintEl.textContent =
-    hardwareLines.length
-      ? `五金合計小計：${money(sumAmount)}`
-      : "—";
+  hwRowsEl.querySelectorAll("button[data-del]").forEach(btn=>{
+    btn.onclick = () => removeHwLine(parseInt(btn.dataset.del,10));
+  });
 
-  return { sumAmount, warns };
+  hwLines.forEach(l => renderHwLineMeta(l.id));
 }
 
-/* 抽屜依深度限制（顯示名稱/單價；找不到就提示） */
-function refreshDrawerOptionsByDepth(){
-  const Dcm = parseInt(depthEl.value || "0", 10);
+function calcHwLine(line){
+  const code = String(line.code||"").trim();
+  const row = code ? findByCode(hardwareRows, code) : null;
+  const unitPrice = row?.price || 0;
+  const qty = Math.max(0, parseFloat(line.qty || "0"));
+  const amount = Math.round(unitPrice * qty);
+  return {
+    code,
+    name: row?.name || "",
+    unit: row?.unit || "",
+    unitPrice,
+    qty,
+    type: row?.type || "",
+    amount
+  };
+}
 
-  if(!(Dcm > 0)){
-    drawerCodeEl.disabled = true;
-    drawerQtyEl.disabled = true;
-    drawerCodeEl.innerHTML = `<option value="">請先輸入深度</option>`;
-    drawerCodeEl.value = "";
+function renderHwLineMeta(id){
+  const line = hwLines.find(x => x.id === id);
+  if(!line) return;
+  const r = calcHwLine(line);
+  const el = document.getElementById(`hwLineMeta_${id}`);
+  if(!el) return;
+
+  if(!r.code){
+    el.textContent = "請先選品項";
     return;
   }
-
-  const allowCodes = (Dcm > 60) ? DRAWER_CODES_DEEP : DRAWER_CODES_SHALLOW;
-
-  drawerCodeEl.disabled = false;
-  drawerQtyEl.disabled = false;
-
-  const prev = drawerCodeEl.value;
-
-  drawerCodeEl.innerHTML =
-    [`<option value="">不需要</option>`].concat(
-      allowCodes.map(code=>{
-        const row = findByCode(drawersRows, code);
-        const name = (row?.name && row.name.trim()) ? row.name.trim() : "（名稱缺失，請檢查 drawers 的「名稱」欄）";
-        const price = row?.price || 0;
-        const unit = row?.unit || "組";
-        return `<option value="${escapeHtml(code)}">${escapeHtml(code)}｜${escapeHtml(name)}｜${money(price)} / ${escapeHtml(unit)}</option>`;
-      })
-    ).join("");
-
-  if(prev && !allowCodes.includes(prev)) drawerCodeEl.value = "";
-  else drawerCodeEl.value = prev;
+  el.textContent = `${r.unit || "—"}｜${money(r.amount)}`;
 }
 
-/* 配件選擇與計價 */
-function getAccessorySelections(){
-  const selections = [];
-  const warnings = [];
+/* ===== 配件總計 ===== */
+function calcBoardsTotal(){
+  return boardLines.reduce((s,l)=> s + (calcBoardLine(l).amount||0), 0);
+}
+function calcHwTotal(){
+  return hwLines.reduce((s,l)=> s + (calcHwLine(l).amount||0), 0);
+}
 
-  // 1) 抽屜（不乘櫃數）
-  const drawerCode = (drawerCodeEl.value || "").trim();
-  if(drawerCode){
-    const qty = Math.max(1, parseInt(drawerQtyEl.value || "1", 10));
-    const row = findByCode(drawersRows, drawerCode);
-    const unitPrice = row?.price || 0;
-    const unit = row?.unit || "組";
-    const name = (row?.name && row.name.trim()) ? row.name.trim() : "（名稱缺失，請檢查 drawers 的「名稱」欄）";
-    if(!row) warnings.push(`抽屜編碼 ${drawerCode} 在 drawers 分頁找不到（此項以 $0 計）`);
-    selections.push({
-      category: "抽屜",
-      code: drawerCode,
-      name,
-      unit,
-      unitPrice,
-      qty,
-      qtyMode: `自訂數量`,
-      amount: unitPrice * qty
-    });
+function updateAddonPreview(){
+  const dr = calcDrawer();
+  const boardsTotal = calcBoardsTotal();
+  const hwTotal = calcHwTotal();
+
+  drawerAmountEl.textContent = money(dr.amount);
+  if(dr.code){
+    drawerMetaEl.textContent = `${dr.code}｜${dr.name || "—"}｜$${dr.unitPrice.toLocaleString()}/${dr.unit || "組"} × ${dr.qty} = ${money(dr.amount)}`;
+  }else{
+    drawerMetaEl.textContent = "不需要抽屜";
   }
 
-  // 2) 板材（多列）
-  const { warns: boardWarns } = refreshBoardLinesHints();
-  warnings.push(...boardWarns);
+  boardsAmountEl.textContent = money(boardsTotal);
+  hwAmountEl.textContent = money(hwTotal);
 
-  boardLines.forEach(line=>{
-    const res = calcBoardLine(line);
-    if(res.empty) return;
-
-    selections.push({
-      category: "板材/封板",
-      code: res.code || (line.code||""),
-      name: res.name || (line.code||""),
-      unit: "才",
-      unitPrice: res.unitPrice || 0,
-      qty: res.totalCai || 0,
-      qtyMode: res.spec
-        ? `(${line.lenCm}×${line.widCm})÷900→進位${res.spec.ceilCaiPerPiece}才/片×${res.spec.pieces}片`
-        : "—",
-      spec: {
-        lenCm: parseFloat(line.lenCm || "0") || 0,
-        widCm: parseFloat(line.widCm || "0") || 0,
-        pieces: Math.max(1, parseInt(line.pieces || "1", 10)),
-        areaCm2: res.spec?.areaCm2 || 0,
-        rawCai: res.spec?.rawCai || 0,
-        ceilCaiPerPiece: res.spec?.ceilCaiPerPiece || 0
-      },
-      amount: res.amount || 0
-    });
-  });
-
-  // 3) 五金（多列）
-  const { warns: hwWarns } = refreshHardwareLinesHints();
-  warnings.push(...hwWarns);
-
-  hardwareLines.forEach(line=>{
-    const res = calcHardwareLine(line);
-    if(res.empty) return;
-
-    selections.push({
-      category: "五金",
-      code: res.code || (line.code||""),
-      name: res.name || (line.code||""),
-      unit: res.unit || "",
-      unitPrice: res.unitPrice || 0,
-      qty: res.qty || 0,
-      qtyMode: `自訂數量`,
-      amount: res.amount || 0
-    });
-  });
-
-  return { selections, warnings };
+  const sum = dr.amount + boardsTotal + hwTotal;
+  addonPreview.textContent = `配件試算：抽屜 ${money(dr.amount)}｜板材 ${money(boardsTotal)}｜五金/加工 ${money(hwTotal)}｜合計 ${money(sum)}`;
 }
 
-/* 即時計算 */
+/* ===== 即時計算（櫃體 + 配件試算） ===== */
 function updateMatchAndPreview(){
-  refreshDrawerOptionsByDepth();
-
   const kind = cabinetKindEl.value;
   const Hcm = parseInt(heightEl.value || "0", 10);
   const Dcm = parseInt(depthEl.value  || "0", 10);
@@ -941,11 +849,12 @@ function updateMatchAndPreview(){
   currentMatch = null;
   currentComputed = null;
 
+  refreshDrawerOptions();
+  updateAddonPreview();
+
   if(!(Hcm>0 && Dcm>0 && Wcm>0)){
     matchHint.textContent = "請輸入高/深/寬（cm），系統會自動匹配價目表並計價。";
     linePreview.textContent = "—";
-    const { warnings } = getAccessorySelections();
-    setWarn(warnings.length ? warnings.join("；") : "");
     return;
   }
 
@@ -955,54 +864,44 @@ function updateMatchAndPreview(){
 
   const best = findBestRate(kind, Hmm, Dmm);
   if(!best){
-    matchHint.textContent = "找不到可匹配的櫃體單價（請確認 cabinets 分頁資料）。";
+    matchHint.textContent = "找不到可匹配的櫃體單價（請確認價目表資料）。";
     linePreview.textContent = "—";
-    const { warnings } = getAccessorySelections();
-    setWarn(warnings.length ? warnings.join("；") : "");
     return;
   }
 
   const countPerSet = calcCabinetCount(Wmm, best.widthMm);
   const countTotal  = countPerSet * qtySet;
-  const baseAmount  = Math.round(best.price * countTotal);
-
-  const { selections, warnings } = getAccessorySelections();
-  const accAmount = selections.reduce((s,x)=>s+(x.amount||0),0);
-  const totalAmount = baseAmount + accAmount;
+  const amount      = Math.round(best.price * countTotal);
 
   currentMatch = best;
-  currentComputed = {
-    kind, Hcm, Dcm, Wcm, qtySet,
-    countPerSet, countTotal,
-    baseAmount,
-    accessories: selections,
-    accessoryAmount: accAmount,
-    totalAmount
-  };
+  currentComputed = { kind, Hcm, Dcm, Wcm, qtySet, countPerSet, countTotal, amount };
 
   matchHint.textContent =
     `已匹配：${kind}｜高 ${(best.heightMm/10).toFixed(0)} / 深 ${(best.depthMm/10).toFixed(0)} / 寬 ${(best.widthMm/10).toFixed(0)}（來源：[${best.code}]）`;
 
-  const accLine = selections.length
-    ? selections.map(a=>`${a.category} ${a.code} ${money(a.unitPrice)}×${a.qty}=${money(a.amount)}`).join("；")
-    : "無";
-
-  linePreview.innerHTML =
-    `<div>每組櫃數 ${countPerSet} × 組數 ${qtySet} = ${countTotal} 櫃</div>` +
-    `<div>櫃體：${money(best.price)} × ${countTotal} = ${money(baseAmount)}</div>` +
-    `<div>配件：${escapeHtml(accLine)}</div>` +
-    `<div class="mt-1">本項合計：<span class="text-emerald-700">${money(totalAmount)}</span></div>`;
-
-  setWarn(warnings.length ? warnings.join("；") : "");
+  linePreview.textContent =
+    `每組櫃數 ${countPerSet}（寬${(best.widthMm/10).toFixed(0)}cm）× 組數 ${qtySet} = ${countTotal} 櫃｜$${best.price.toLocaleString()} × ${countTotal} = $${amount.toLocaleString()}`;
 }
 
-/* 加入購物車 */
+/* ===== 加入購物車 ===== */
 document.getElementById("addItemBtn").onclick = () => {
   const name = document.getElementById("cabinetLabel").value.trim() || "櫃體";
   if(!currentMatch || !currentComputed){
     alert("請先輸入完整高/深/寬，並確認已成功匹配單價。");
     return;
   }
+
+  // 配件計算（注意：抽屜/板材/五金 皆以使用者輸入數量計價，不乘上櫃數）
+  const dr = calcDrawer();
+  const bLines = boardLines.map(l => calcBoardLine(l)).filter(x => x.code);
+  const hLines = hwLines.map(l => calcHwLine(l)).filter(x => x.code);
+
+  const boardsTotal = bLines.reduce((s,x)=>s+(x.amount||0),0);
+  const hwTotal = hLines.reduce((s,x)=>s+(x.amount||0),0);
+  const addonsTotal = (dr.amount||0) + boardsTotal + hwTotal;
+
+  const baseAmount = currentComputed.amount;
+  const itemTotal = baseAmount + addonsTotal;
 
   const it = {
     label: name,
@@ -1018,30 +917,26 @@ document.getElementById("addItemBtn").onclick = () => {
     },
     countPerSet: currentComputed.countPerSet,
     countTotal: currentComputed.countTotal,
-    baseAmount: currentComputed.baseAmount,
-    accessories: currentComputed.accessories || [],
-    accessoryAmount: currentComputed.accessoryAmount || 0,
-    amountTotal: currentComputed.totalAmount || currentComputed.baseAmount
+    baseAmount,
+
+    addons: {
+      drawer: dr.code ? dr : null,
+      boards: bLines,
+      hardwares: hLines,
+      boardsTotal,
+      hwTotal,
+      addonsTotal
+    },
+
+    amount: itemTotal
   };
 
   cartItems.push(it);
   renderCart();
   calcTotal();
-
-  // 清空配件，避免下一筆沿用
-  drawerCodeEl.value = "";
-  drawerQtyEl.value = "1";
-
-  boardLines = [];
-  renderBoardLines();
-
-  hardwareLines = [];
-  renderHardwareLines();
-
-  updateMatchAndPreview();
 };
 
-/* 渲染購物車 */
+/* ===== 渲染購物車 ===== */
 function renderCart(){
   if(!cartItems.length){
     quoteList.innerHTML = `<p class="text-xs text-slate-400">尚未加入任何項目。</p>`;
@@ -1049,49 +944,49 @@ function renderCart(){
   }
 
   quoteList.innerHTML = cartItems.map((it,i)=>{
-    const accHtml = (it.accessories && it.accessories.length)
-      ? `<div class="mt-2 border-t pt-2">
-          <p class="text-[11px] text-slate-600 font-semibold">配件</p>
-          <div class="mt-1 space-y-1">
-            ${it.accessories.map(a=>{
-              const extra = (a.category === "板材/封板" && a.spec && a.spec.lenCm && a.spec.widCm)
-                ? `｜長${a.spec.lenCm}×寬${a.spec.widCm}cm｜${a.spec.ceilCaiPerPiece}才/片×${a.spec.pieces}片`
-                : "";
-              return `
-              <p class="text-[11px] text-slate-600">
-                - ${escapeHtml(a.category)}：${escapeHtml(a.code)}｜${escapeHtml(a.name)}
-                ｜${money(a.unitPrice)} × ${a.qty}${escapeHtml(a.unit||"")}
-                （${escapeHtml(a.qtyMode || "")}${escapeHtml(extra)}）= ${money(a.amount)}
-              </p>`;
-            }).join("")}
-            <p class="text-[11px] text-emerald-700 font-semibold">配件小計：${money(it.accessoryAmount || 0)}</p>
-          </div>
-        </div>`
-      : `<p class="text-[11px] text-slate-500 mt-2">配件：無</p>`;
+    const dr = it.addons?.drawer;
+    const b = it.addons?.boards || [];
+    const h = it.addons?.hardwares || [];
+
+    const drawerText = dr
+      ? `<p class="text-[11px] text-slate-600">抽屜：${dr.code}｜${dr.name}｜$${dr.unitPrice}/${dr.unit} × ${dr.qty} = ${money(dr.amount)}</p>`
+      : `<p class="text-[11px] text-slate-400">抽屜：不需要</p>`;
+
+    const boardsText = b.length
+      ? b.map(x=>`<p class="text-[11px] text-slate-600">板材：${x.code}｜${x.name}｜${x.lengthCm}×${x.widthCm}cm×${x.pieces}片＝${x.areaCm2.toFixed(0)}cm² → ${x.cai}才｜${money(x.amount)}</p>`).join("")
+      : `<p class="text-[11px] text-slate-400">板材：未填</p>`;
+
+    const hwText = h.length
+      ? h.map(x=>`<p class="text-[11px] text-slate-600">五金/加工：${x.code}｜${x.name}｜$${x.unitPrice}/${x.unit} × ${x.qty} = ${money(x.amount)}</p>`).join("")
+      : `<p class="text-[11px] text-slate-400">五金/加工：未填</p>`;
 
     return `
-    <div class="border rounded-xl px-3 py-2">
-      <div class="flex justify-between items-start">
-        <div class="text-xs">
-          <p class="font-semibold text-slate-800">${escapeHtml(it.label)}（${escapeHtml(it.kind)}）</p>
-          <p class="text-[11px] text-slate-500">
-            輸入：高 ${it.input.heightCm} / 深 ${it.input.depthCm} / 寬 ${it.input.widthCm} cm｜組數 ${it.input.qtySet}
-          </p>
-          <p class="text-[11px] text-emerald-700">
-            匹配：[${escapeHtml(it.matched.code)}] 高 ${(it.matched.heightMm/10).toFixed(0)} / 深 ${(it.matched.depthMm/10).toFixed(0)} / 寬 ${(it.matched.widthMm/10).toFixed(0)}
-            ｜${money(it.matched.unitPrice)} / 櫃
-          </p>
-          <p class="text-[11px] text-slate-500">
-            每組櫃數 ${it.countPerSet} × 組數 ${it.input.qtySet} = ${it.countTotal} 櫃｜櫃體小計 ${money(it.baseAmount)}
-          </p>
-          ${accHtml}
-          <p class="text-[11px] text-slate-800 font-semibold mt-2">
-            本項合計：${money(it.amountTotal)}
-          </p>
+      <div class="border rounded-xl px-3 py-2">
+        <div class="flex justify-between items-start">
+          <div class="text-xs">
+            <p class="font-semibold text-slate-800">${it.label}（${it.kind}）</p>
+            <p class="text-[11px] text-slate-500">
+              輸入：高 ${it.input.heightCm} / 深 ${it.input.depthCm} / 寬 ${it.input.widthCm} cm｜組數 ${it.input.qtySet}
+            </p>
+            <p class="text-[11px] text-emerald-700">
+              櫃體匹配：[${it.matched.code}] 高 ${(it.matched.heightMm/10).toFixed(0)} / 深 ${(it.matched.depthMm/10).toFixed(0)} / 寬 ${(it.matched.widthMm/10).toFixed(0)}
+              ｜$${it.matched.unitPrice.toLocaleString()} / 櫃
+            </p>
+            <p class="text-[11px] text-slate-500">
+              櫃體：每組${it.countPerSet} × 組數${it.input.qtySet} = ${it.countTotal} 櫃｜櫃體小計 ${money(it.baseAmount)}
+            </p>
+
+            <div class="mt-2 border-t pt-2">
+              <p class="text-[11px] font-semibold text-slate-700">配件</p>
+              ${drawerText}
+              ${boardsText}
+              ${hwText}
+              <p class="text-[11px] text-slate-700 font-semibold mt-1">本項合計：${money(it.amount)}</p>
+            </div>
+          </div>
+          <button data-i="${i}" class="text-red-500 text-[11px] removeBtn">刪除</button>
         </div>
-        <button data-i="${i}" class="text-red-500 text-[11px] removeBtn">刪除</button>
       </div>
-    </div>
     `;
   }).join("");
 
@@ -1104,7 +999,7 @@ function renderCart(){
   });
 }
 
-/* 總價 */
+/* ===== 總價 ===== */
 function calcTotal(){
   if(!cartItems.length){
     subtotalDisplay.textContent="—";
@@ -1114,38 +1009,49 @@ function calcTotal(){
     return { subtotal:0, ufFee:0, total:0 };
   }
 
-  const subtotal = cartItems.reduce((s,x)=>s + (x.amountTotal||0), 0);
-  subtotalDisplay.textContent = `$${subtotal.toLocaleString()}`;
+  const subtotal = cartItems.reduce((s,x)=>s + (x.amount||0), 0);
+  subtotalDisplay.textContent = money(subtotal);
 
   let ufFee = 0;
   if(subtotal < 50000) ufFee = 6000;
-  ufAmountDisplay.textContent = `+ $${ufFee.toLocaleString()}`;
+  ufAmountDisplay.textContent = `+ ${money(ufFee)}`;
 
   const total = subtotal + ufFee;
-  totalDisplay.textContent = `$${total.toLocaleString()}`;
-  footerTotal.textContent = `$${total.toLocaleString()}`;
+  totalDisplay.textContent = money(total);
+  footerTotal.textContent = money(total);
 
   return { subtotal, ufFee, total };
 }
 
-/* payload */
+/* ===== payload ===== */
 function buildPayload(){
   const { subtotal, ufFee, total } = calcTotal();
 
   const itemsText = cartItems.map((it,i)=>{
-    const accText = (it.accessories && it.accessories.length)
-      ? it.accessories.map(a=>(
-          `   - ${a.category}：${a.code}｜${a.name}｜$${a.unitPrice}/${a.unit||""} × ${a.qty}${a.unit||""}（${a.qtyMode||""}）= $${(a.amount||0).toLocaleString()}`
-        )).join("\n")
-      : "   - 無";
+    const dr = it.addons?.drawer;
+    const b = it.addons?.boards || [];
+    const h = it.addons?.hardwares || [];
+
+    const drText = dr
+      ? `   抽屜：${dr.code}｜${dr.name}｜$${dr.unitPrice}/${dr.unit} × ${dr.qty} = ${money(dr.amount)}\n`
+      : `   抽屜：不需要\n`;
+
+    const bText = b.length
+      ? b.map(x=>`   板材：${x.code}｜${x.name}｜${x.lengthCm}×${x.widthCm}cm×${x.pieces}片＝${x.areaCm2.toFixed(0)}cm² → ${x.cai}才｜${money(x.amount)}`).join("\n") + "\n"
+      : `   板材：未填\n`;
+
+    const hText = h.length
+      ? h.map(x=>`   五金/加工：${x.code}｜${x.name}｜$${x.unitPrice}/${x.unit} × ${x.qty} = ${money(x.amount)}`).join("\n") + "\n"
+      : `   五金/加工：未填\n`;
 
     return (
       `${i+1}. ${it.label}（${it.kind}）\n` +
       `   輸入：高${it.input.heightCm} 深${it.input.depthCm} 寬${it.input.widthCm}cm｜組數${it.input.qtySet}\n` +
-      `   匹配：${it.matched.code}｜高${(it.matched.heightMm/10).toFixed(0)} 深${(it.matched.depthMm/10).toFixed(0)} 寬${(it.matched.widthMm/10).toFixed(0)}｜$${it.matched.unitPrice}/櫃\n` +
-      `   櫃數：每組${it.countPerSet} × 組數${it.input.qtySet} = ${it.countTotal}｜櫃體小計：$${(it.baseAmount||0).toLocaleString()}\n` +
-      `   配件：\n${accText}\n` +
-      `   本項合計：$${(it.amountTotal||0).toLocaleString()}`
+      `   櫃體匹配：${it.matched.code}｜高${(it.matched.heightMm/10).toFixed(0)} 深${(it.matched.depthMm/10).toFixed(0)} 寬${(it.matched.widthMm/10).toFixed(0)}｜$${it.matched.unitPrice}/櫃\n` +
+      `   櫃體櫃數：每組${it.countPerSet} × 組數${it.input.qtySet} = ${it.countTotal}｜櫃體小計：${money(it.baseAmount)}\n` +
+      `   配件：\n` +
+      drText + bText + hText +
+      `   本項合計：${money(it.amount)}`
     );
   }).join("\n\n");
 
@@ -1161,7 +1067,7 @@ function buildPayload(){
   };
 }
 
-/* LIFF */
+/* ===== LIFF ===== */
 async function initLiff(){
   try{
     await liff.init({ liffId:"2008590887-zkqDbWqb" });
@@ -1188,7 +1094,7 @@ async function initLiff(){
   }
 }
 
-/* send */
+/* ===== send ===== */
 async function sendToMake(){
   const name = document.getElementById("customerName").value.trim();
   const phone = document.getElementById("customerPhone").value.trim();
@@ -1197,7 +1103,7 @@ async function sendToMake(){
     return;
   }
   if(!cartItems.length){
-    alert("請先加入至少 1 個櫃體項目");
+    alert("請先加入至少 1 個項目");
     return;
   }
   if(!userId){
@@ -1217,120 +1123,114 @@ async function sendToMake(){
   if(liff.isInClient()) liff.closeWindow();
 }
 
-/* INIT */
+/* ===== INIT ===== */
 document.addEventListener("DOMContentLoaded", async ()=>{
   initScale();
   const btn = document.getElementById("fontToggleBtn");
   if(btn) btn.onclick = toggleScale;
 
-  await initLiff();
+  // 預設先各新增一列板材/五金（可刪）
+  addBoardLine();
+  addHwLine();
 
   try{
-    await loadCabinets();
-    drawersRows = await loadSimpleTabFromUrl(DRAWERS_CSV);
-    boardsRows = await loadSimpleTabFromUrl(BOARDS_CSV);
-    hardwaresRows = await loadSimpleTabFromUrl(HARDWARES_CSV);
+    await initLiff();
 
-    buildBoardOptions();
-    buildHardwareOptions();
+    // 逐一載入，成功/失敗都記錄，彈窗提供精準錯誤
+    const results = [];
 
-    loadStatus.textContent =
-      `已載入：櫃體 ${cabinetRows.length}｜抽屜 ${drawersRows.length}｜板材/封板 ${boardsRows.length}｜五金 ${hardwaresRows.length}`;
+    // 1) 櫃體
+    try{
+      await loadCabinetSheet();
+      results.push({ ok:true, name:"cabinets（櫃體）", count:cabinetRows.length, url:CABINETS_CSV });
+    }catch(e){
+      results.push({ ok:false, name:"cabinets（櫃體）", err:e, url:CABINETS_CSV });
+    }
 
-  }catch(e){
-    console.error(e);
-    loadStatus.textContent = "載入失敗：" + (e?.message || e);
+    // 2) 抽屜
+    try{
+      drawerRows = await loadSimpleTab(DRAWERS_CSV);
+      results.push({ ok:true, name:"drawers（抽屜）", count:drawerRows.length, url:DRAWERS_CSV });
+    }catch(e){
+      results.push({ ok:false, name:"drawers（抽屜）", err:e, url:DRAWERS_CSV });
+    }
 
-    // ✅ 這裡是「更精準」的錯誤訊息（不再只說可能需要 gid）
-    alert(
-      "價目表載入失敗（請依序檢查）：\n\n" +
-      "1) 該分頁是否已「發佈為 CSV」\n" +
-      "2) CSV 第一列表頭是否包含：編碼/名稱/單位/單價/類型\n" +
-      "3) 是否貼錯 gid（每個分頁 gid 不同）\n\n" +
-      "本次錯誤訊息：\n" + (e?.message || e) + "\n\n" +
-      "目前使用的 CSV：\n" +
-      "- drawers（抽屜）：\n" + DRAWERS_CSV + "\n\n" +
-      "- boards（板材/封板）：\n" + BOARDS_CSV + "\n\n" +
-      "- hardwares（五金與加工）：\n" + HARDWARES_CSV
-    );
+    // 3) 板材
+    try{
+      boardRows = await loadSimpleTab(BOARDS_CSV);
+      results.push({ ok:true, name:"boards（板材）", count:boardRows.length, url:BOARDS_CSV });
+    }catch(e){
+      results.push({ ok:false, name:"boards（板材）", err:e, url:BOARDS_CSV });
+    }
+
+    // 4) 五金/加工
+    try{
+      hardwareRows = await loadSimpleTab(HARDWARES_CSV);
+      results.push({ ok:true, name:"hardwares（五金/加工）", count:hardwareRows.length, url:HARDWARES_CSV });
+    }catch(e){
+      results.push({ ok:false, name:"hardwares（五金/加工）", err:e, url:HARDWARES_CSV });
+    }
+
+    const okAll = results.every(x=>x.ok);
+    const okText = results.filter(x=>x.ok).map(x=>`${x.name}：${x.count}筆`).join("｜") || "—";
+    const failText = results.filter(x=>!x.ok).map(x=>x.name).join("｜") || "";
+
+    document.getElementById("loadStatus").textContent =
+      okAll ? `價目表載入完成（${okText}）` : `部分價目表載入失敗（成功：${okText}）`;
+    document.getElementById("loadStatus2").textContent =
+      okAll ? "—" : `失敗：${failText}`;
+
+    // 若有失敗：精準彈窗（比「可能需要 gid」更清楚）
+    if(!okAll){
+      const lines = [];
+      lines.push("【價目表載入失敗】");
+      lines.push("你的網頁需要從 Google 讀取 CSV；若檔案未公開或未「發佈到網頁」，LIFF 會抓不到資料。");
+      lines.push("");
+      results.filter(x=>!x.ok).forEach(x=>{
+        const st = x.err?.status ? `HTTP ${x.err.status}` : "（無狀態碼）";
+        lines.push(`- ${x.name}：${st}`);
+        lines.push(`  連結：${x.url}`);
+        const msg = (x.err?.message || "").split("\n")[0];
+        if(msg) lines.push(`  錯誤：${msg}`);
+      });
+      lines.push("");
+      lines.push("請到 Google Sheet 執行：");
+      lines.push("1) 共用 → 一般存取：改成「知道連結的任何人：檢視者」");
+      lines.push("2) 檔案 → 共用 → 發佈到網頁（Publish to web）→ 重新發佈");
+      lines.push("3) 回到 LIFF 頁面重新整理（建議無痕/清快取）");
+
+      alert(lines.join("\n"));
+    }
+
+    // render 配件 rows
+    renderBoardLines();
+    renderHwLines();
+
+    // 初始化依深度刷新抽屜選項
+    refreshDrawerOptions();
+
+    // 櫃體即時計算
+    updateMatchAndPreview();
+
+    cabinetKindEl.onchange = updateMatchAndPreview;
+    heightEl.oninput = updateMatchAndPreview;
+    depthEl.oninput  = updateMatchAndPreview;
+    widthEl.oninput  = updateMatchAndPreview;
+    qtySetEl.oninput = updateMatchAndPreview;
+
+    drawerCodeEl.onchange = updateAddonPreview;
+    drawerQtyEl.oninput = updateAddonPreview;
+
+    document.getElementById("addBoardRowBtn").onclick = addBoardLine;
+    document.getElementById("addHwRowBtn").onclick = addHwLine;
+
+    document.getElementById("sendBtn").onclick = sendToMake;
+
+  }catch(err){
+    // 最外層保險（真的爆炸才會來這裡）
+    console.error(err);
+    alert("系統初始化失敗，請稍後重試或檢查網路連線。");
   }
-
-  // 初始渲染空狀態
-  renderBoardLines();
-  renderHardwareLines();
-
-  // 新增列按鈕
-  document.getElementById("addBoardLineBtn").onclick = ()=> addBoardLine({ pieces:1 });
-  document.getElementById("addHardwareLineBtn").onclick = ()=> addHardwareLine({ qty:1 });
-
-  // 櫃體輸入
-  cabinetKindEl.onchange = updateMatchAndPreview;
-  heightEl.oninput = updateMatchAndPreview;
-  depthEl.oninput  = updateMatchAndPreview;
-  widthEl.oninput  = updateMatchAndPreview;
-  qtySetEl.oninput = updateMatchAndPreview;
-
-  // 抽屜
-  drawerCodeEl.onchange = updateMatchAndPreview;
-  drawerQtyEl.oninput = updateMatchAndPreview;
-
-  // 板材多列：事件委派
-  boardLinesEl.addEventListener("change", (e)=>{
-    const t = e.target;
-    if(t.classList.contains("boardCode")){
-      const id = t.dataset.id;
-      const line = boardLines.find(x=>x.id===id);
-      if(line) line.code = t.value;
-      updateMatchAndPreview();
-    }
-  });
-  boardLinesEl.addEventListener("input", (e)=>{
-    const t = e.target;
-    const id = t.dataset.id;
-    const line = boardLines.find(x=>x.id===id);
-    if(!line) return;
-
-    if(t.classList.contains("boardLen")) line.lenCm = t.value;
-    if(t.classList.contains("boardWid")) line.widCm = t.value;
-    if(t.classList.contains("boardPieces")) line.pieces = t.value;
-
-    updateMatchAndPreview();
-  });
-  boardLinesEl.addEventListener("click", (e)=>{
-    const t = e.target;
-    if(t.classList.contains("removeBoardLine")){
-      removeBoardLine(t.dataset.id);
-    }
-  });
-
-  // 五金多列：事件委派
-  hardwareLinesEl.addEventListener("change", (e)=>{
-    const t = e.target;
-    if(t.classList.contains("hardwareCode")){
-      const id = t.dataset.id;
-      const line = hardwareLines.find(x=>x.id===id);
-      if(line) line.code = t.value;
-      updateMatchAndPreview();
-    }
-  });
-  hardwareLinesEl.addEventListener("input", (e)=>{
-    const t = e.target;
-    if(!t.classList.contains("hardwareQty")) return;
-    const id = t.dataset.id;
-    const line = hardwareLines.find(x=>x.id===id);
-    if(line) line.qty = t.value;
-    updateMatchAndPreview();
-  });
-  hardwareLinesEl.addEventListener("click", (e)=>{
-    const t = e.target;
-    if(t.classList.contains("removeHardwareLine")){
-      removeHardwareLine(t.dataset.id);
-    }
-  });
-
-  document.getElementById("sendBtn").onclick = sendToMake;
-
-  updateMatchAndPreview();
 });
 </script>
 
