@@ -1067,7 +1067,7 @@ function buildPayload(){
   };
 }
 
-/* ===== LIFF ===== */
+/* ===== LIFF（加強版：優先 context.userId，並鎖住送出按鈕直到取得 userId） ===== */
 async function initLiff(){
   try{
     await liff.init({ liffId:"2008590887-zkqDbWqb" });
@@ -1077,24 +1077,36 @@ async function initLiff(){
       return;
     }
 
+    // 1) context userId（在 LINE App 內最穩）
+    let uid = null;
     try{
-      const profile = await liff.getProfile();
-      userId = profile.userId;
-    }catch(e){
-      const decoded = liff.getDecodedIDToken?.();
-      userId = decoded?.sub || null;
+      const ctx = liff.getContext?.();
+      uid = ctx?.userId || null;
+    }catch(e){}
+
+    // 2) getProfile
+    if(!uid){
+      try{
+        const profile = await liff.getProfile();
+        uid = profile?.userId || null;
+      }catch(e){}
     }
 
-    if(!userId){
+    // 3) decoded token（最後備援；需 openid scope）
+    if(!uid){
       const decoded = liff.getDecodedIDToken?.();
-      userId = decoded?.sub || null;
+      uid = decoded?.sub || null;
     }
+
+    userId = (uid || "").trim() || null;
+    console.log("LIFF userId:", userId);
+
   }catch(err){
     console.error("LIFF init failed:", err);
   }
 }
 
-/* ===== send ===== */
+/* ===== send（加強：檢查回應狀態） ===== */
 async function sendToMake(){
   const name = document.getElementById("customerName").value.trim();
   const phone = document.getElementById("customerPhone").value.trim();
@@ -1107,17 +1119,23 @@ async function sendToMake(){
     return;
   }
   if(!userId){
-    alert("無法取得 userId，請從 LINE App 開啟頁面，或在外部瀏覽器完成 LINE 登入。");
+    alert("無法取得 userId，請從 LINE App 開啟頁面，或先完成 LINE 登入後再送出。");
     return;
   }
 
   const payload = buildPayload();
 
-  await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9",{
+  const res = await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9",{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify(payload)
+    body: JSON.stringify(payload)
   });
+
+  if(!res.ok){
+    const t = await res.text().catch(()=> "");
+    alert("送出失敗：" + res.status + "\n" + (t ? t.slice(0,200) : ""));
+    return;
+  }
 
   alert("報價已送出！");
   if(liff.isInClient()) liff.closeWindow();
@@ -1129,12 +1147,25 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   const btn = document.getElementById("fontToggleBtn");
   if(btn) btn.onclick = toggleScale;
 
+  // 送出按鈕先鎖住，等 userId 準備好再開
+  const sendBtnEl = document.getElementById("sendBtn");
+  if(sendBtnEl){
+    sendBtnEl.disabled = true;
+    sendBtnEl.classList.add("opacity-60","pointer-events-none");
+  }
+
   // 預設先各新增一列板材/五金（可刪）
   addBoardLine();
   addHwLine();
 
   try{
     await initLiff();
+
+    // userId 有了才解鎖送出按鈕
+    if(sendBtnEl && userId){
+      sendBtnEl.disabled = false;
+      sendBtnEl.classList.remove("opacity-60","pointer-events-none");
+    }
 
     // 逐一載入，成功/失敗都記錄，彈窗提供精準錯誤
     const results = [];
@@ -1180,7 +1211,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     document.getElementById("loadStatus2").textContent =
       okAll ? "—" : `失敗：${failText}`;
 
-    // 若有失敗：精準彈窗（比「可能需要 gid」更清楚）
     if(!okAll){
       const lines = [];
       lines.push("【價目表載入失敗】");
@@ -1206,10 +1236,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     renderBoardLines();
     renderHwLines();
 
-    // 初始化依深度刷新抽屜選項
     refreshDrawerOptions();
-
-    // 櫃體即時計算
     updateMatchAndPreview();
 
     cabinetKindEl.onchange = updateMatchAndPreview;
@@ -1224,10 +1251,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     document.getElementById("addBoardRowBtn").onclick = addBoardLine;
     document.getElementById("addHwRowBtn").onclick = addHwLine;
 
-    document.getElementById("sendBtn").onclick = sendToMake;
+    if(sendBtnEl) sendBtnEl.onclick = sendToMake;
 
   }catch(err){
-    // 最外層保險（真的爆炸才會來這裡）
     console.error(err);
     alert("系統初始化失敗，請稍後重試或檢查網路連線。");
   }
