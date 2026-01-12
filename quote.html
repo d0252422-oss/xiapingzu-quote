@@ -53,10 +53,16 @@
     <div class="wood-bg h-20 w-full"></div>
     <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#022c22] via-[#064e3b]/95 to-transparent"></div>
 
-    <div class="absolute top-3 right-4 z-20">
+    <div class="absolute top-3 right-4 z-20 flex gap-2">
       <button id="fontToggleBtn"
         class="rounded-xl bg-white/90 backdrop-blur px-3 py-2 text-[11px] font-semibold text-slate-800 border border-white/70 shadow-sm active:scale-95">
         字體：1.25×
+      </button>
+
+      <!-- 可選：快速測試 webhook 是否通（不想要可刪） -->
+      <button id="debugPingBtn"
+        class="rounded-xl bg-white/90 backdrop-blur px-3 py-2 text-[11px] font-semibold text-slate-800 border border-white/70 shadow-sm active:scale-95">
+        測試送出
       </button>
     </div>
 
@@ -64,6 +70,10 @@
       <p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">SYSTEM CABINET QUOTE</p>
       <h1 class="text-2xl font-semibold text-white">拚拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h1>
       <p class="text-[11px] text-emerald-100/80 mt-1">輸入高/深/寬加入購物車｜配件可選（抽屜/板材/五金加工）</p>
+
+      <p id="liffStatus" class="text-[11px] text-emerald-100/80 mt-2">
+        LIFF：初始化中…
+      </p>
     </div>
   </header>
 
@@ -303,6 +313,9 @@ const BOARDS_CSV =
 const HARDWARES_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=206474142&single=true&output=csv";
 
+/* webhook */
+const MAKE_WEBHOOK = "https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9";
+
 /* 你提供的表：高度/深度/寬度皆為 mm；使用者輸入 cm，所以需 ×10 */
 const CM_TO_MM = 10;
 /* 板材：1 才 = 900 平方公分 */
@@ -501,6 +514,10 @@ const boardsAmountEl = document.getElementById("boardsAmount");
 const hwRowsEl = document.getElementById("hwRows");
 const hwAmountEl = document.getElementById("hwAmount");
 
+const liffStatusEl = document.getElementById("liffStatus");
+const sendBtnEl = document.getElementById("sendBtn");
+const debugPingBtn = document.getElementById("debugPingBtn");
+
 let currentMatch = null;
 let currentComputed = null;
 
@@ -617,7 +634,6 @@ function renderBoardLines(){
     `;
   }).join("");
 
-  // bind
   boardRowsEl.querySelectorAll("select[data-k], input[data-k]").forEach(el=>{
     el.oninput = () => {
       const id = parseInt(el.dataset.id, 10);
@@ -628,7 +644,6 @@ function renderBoardLines(){
       updateAddonPreview();
       renderBoardLineMeta(id);
     };
-    // 初始化 select value
     if(el.tagName === "SELECT"){
       const id = parseInt(el.dataset.id, 10);
       const line = boardLines.find(x => x.id === id);
@@ -640,7 +655,6 @@ function renderBoardLines(){
     btn.onclick = () => removeBoardLine(parseInt(btn.dataset.del,10));
   });
 
-  // render metas
   boardLines.forEach(l => renderBoardLineMeta(l.id));
 }
 
@@ -710,7 +724,6 @@ function renderHwLines(){
     return;
   }
 
-  // 依類型分組（五金/加工/電料...），方便挑選
   const groups = {};
   hardwareRows.forEach(x=>{
     const g = x.type || "其他";
@@ -891,7 +904,6 @@ document.getElementById("addItemBtn").onclick = () => {
     return;
   }
 
-  // 配件計算（注意：抽屜/板材/五金 皆以使用者輸入數量計價，不乘上櫃數）
   const dr = calcDrawer();
   const bLines = boardLines.map(l => calcBoardLine(l)).filter(x => x.code);
   const hLines = hwLines.map(l => calcHwLine(l)).filter(x => x.code);
@@ -918,7 +930,6 @@ document.getElementById("addItemBtn").onclick = () => {
     countPerSet: currentComputed.countPerSet,
     countTotal: currentComputed.countTotal,
     baseAmount,
-
     addons: {
       drawer: dr.code ? dr : null,
       boards: bLines,
@@ -927,7 +938,6 @@ document.getElementById("addItemBtn").onclick = () => {
       hwTotal,
       addonsTotal
     },
-
     amount: itemTotal
   };
 
@@ -1067,18 +1077,34 @@ function buildPayload(){
   };
 }
 
-/* ===== LIFF（加強版：優先 context.userId，並鎖住送出按鈕直到取得 userId） ===== */
+/* ===== 小工具：按鈕鎖定/解鎖 ===== */
+function lockSendBtn(reason){
+  if(!sendBtnEl) return;
+  sendBtnEl.disabled = true;
+  sendBtnEl.classList.add("opacity-60","pointer-events-none");
+  sendBtnEl.textContent = reason ? `傳送報價（${reason}）` : "傳送報價";
+}
+function unlockSendBtn(){
+  if(!sendBtnEl) return;
+  sendBtnEl.disabled = false;
+  sendBtnEl.classList.remove("opacity-60","pointer-events-none");
+  sendBtnEl.textContent = "傳送報價";
+}
+
+/* ===== LIFF（加強版：優先 context.userId） ===== */
 async function initLiff(){
   try{
     await liff.init({ liffId:"2008590887-zkqDbWqb" });
 
     if(!liff.isLoggedIn()){
+      liffStatusEl.textContent = "LIFF：尚未登入，跳轉登入中…";
       liff.login({ redirectUri: window.location.href });
       return;
     }
 
-    // 1) context userId（在 LINE App 內最穩）
     let uid = null;
+
+    // 1) context userId（LINE App 內最穩）
     try{
       const ctx = liff.getContext?.();
       uid = ctx?.userId || null;
@@ -1092,24 +1118,47 @@ async function initLiff(){
       }catch(e){}
     }
 
-    // 3) decoded token（最後備援；需 openid scope）
+    // 3) decoded token（需 openid scope；當備援）
     if(!uid){
       const decoded = liff.getDecodedIDToken?.();
       uid = decoded?.sub || null;
     }
 
     userId = (uid || "").trim() || null;
-    console.log("LIFF userId:", userId);
 
+    if(userId){
+      liffStatusEl.textContent = `LIFF：已取得 userId（${userId.slice(0,6)}…${userId.slice(-4)}）`;
+      unlockSendBtn();
+    }else{
+      liffStatusEl.textContent = "LIFF：取得 userId 失敗（請從 LINE 內開啟或確認 LIFF scope）";
+      lockSendBtn("未取得userId");
+    }
+
+    console.log("LIFF userId:", userId);
   }catch(err){
     console.error("LIFF init failed:", err);
+    liffStatusEl.textContent = "LIFF：初始化失敗（請檢查 liffId / 網路）";
+    lockSendBtn("LIFF失敗");
   }
 }
 
-/* ===== send（加強：檢查回應狀態） ===== */
+/* ===== fetch with timeout ===== */
+async function fetchWithTimeout(url, options={}, timeoutMs=15000){
+  const controller = new AbortController();
+  const id = setTimeout(()=>controller.abort(), timeoutMs);
+  try{
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally{
+    clearTimeout(id);
+  }
+}
+
+/* ===== send（加強：檢查回應狀態 + 顯示錯誤） ===== */
 async function sendToMake(){
   const name = document.getElementById("customerName").value.trim();
   const phone = document.getElementById("customerPhone").value.trim();
+
   if(!name || !phone){
     alert("請完整填寫：姓名 + 電話");
     return;
@@ -1124,35 +1173,86 @@ async function sendToMake(){
   }
 
   const payload = buildPayload();
+  lockSendBtn("送出中…");
 
-  const res = await fetch("https://hook.us2.make.com/ajl0cxe88ppt16rbtvj8rgepu8tredg9",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
-  });
+  try{
+    const res = await fetchWithTimeout(MAKE_WEBHOOK, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    }, 15000);
 
-  if(!res.ok){
-    const t = await res.text().catch(()=> "");
-    alert("送出失敗：" + res.status + "\n" + (t ? t.slice(0,200) : ""));
+    const text = await res.text().catch(()=> "");
+
+    if(!res.ok){
+      alert("送出失敗：HTTP " + res.status + "\n" + (text ? text.slice(0,300) : "（無回應內容）"));
+      unlockSendBtn();
+      return;
+    }
+
+    // 成功：如果 Make 有回內容，給你看（方便除錯）
+    if(text && text.trim()){
+      console.log("Make response:", text);
+    }
+
+    alert("報價已送出！");
+    if(liff.isInClient()) liff.closeWindow();
+    unlockSendBtn();
+  }catch(err){
+    const msg = (err && err.name === "AbortError")
+      ? "送出逾時（15 秒）。請確認網路或 Make webhook 是否正常。"
+      : ("送出失敗：" + (err?.message || err));
+    alert(msg);
+    unlockSendBtn();
+  }
+}
+
+/* ===== 可選：快速測試 webhook（不需要購物車也可按） ===== */
+async function debugPing(){
+  if(!userId){
+    alert("尚未取得 userId，無法測試。請從 LINE 內開啟。");
     return;
   }
 
-  alert("報價已送出！");
-  if(liff.isInClient()) liff.closeWindow();
+  const payload = {
+    userId,
+    customerName: "測試",
+    customerPhone: "0000",
+    subtotal: 0,
+    ufFee: 0,
+    total: 0,
+    itemsText: "PING",
+    itemsRaw: "[]"
+  };
+
+  try{
+    const res = await fetchWithTimeout(MAKE_WEBHOOK, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    }, 15000);
+
+    const text = await res.text().catch(()=> "");
+    if(!res.ok){
+      alert("測試失敗：HTTP " + res.status + "\n" + (text ? text.slice(0,300) : ""));
+      return;
+    }
+    alert("測試成功：Make 已收到（請到 Make History 看 Webhooks Output）");
+  }catch(err){
+    alert("測試失敗：" + (err?.message || err));
+  }
 }
 
 /* ===== INIT ===== */
 document.addEventListener("DOMContentLoaded", async ()=>{
   initScale();
-  const btn = document.getElementById("fontToggleBtn");
-  if(btn) btn.onclick = toggleScale;
+  const fontBtn = document.getElementById("fontToggleBtn");
+  if(fontBtn) fontBtn.onclick = toggleScale;
 
   // 送出按鈕先鎖住，等 userId 準備好再開
-  const sendBtnEl = document.getElementById("sendBtn");
-  if(sendBtnEl){
-    sendBtnEl.disabled = true;
-    sendBtnEl.classList.add("opacity-60","pointer-events-none");
-  }
+  lockSendBtn("初始化中…");
+
+  if(debugPingBtn) debugPingBtn.onclick = debugPing;
 
   // 預設先各新增一列板材/五金（可刪）
   addBoardLine();
@@ -1161,16 +1261,9 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   try{
     await initLiff();
 
-    // userId 有了才解鎖送出按鈕
-    if(sendBtnEl && userId){
-      sendBtnEl.disabled = false;
-      sendBtnEl.classList.remove("opacity-60","pointer-events-none");
-    }
-
-    // 逐一載入，成功/失敗都記錄，彈窗提供精準錯誤
+    // 逐一載入價目表
     const results = [];
 
-    // 1) 櫃體
     try{
       await loadCabinetSheet();
       results.push({ ok:true, name:"cabinets（櫃體）", count:cabinetRows.length, url:CABINETS_CSV });
@@ -1178,7 +1271,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       results.push({ ok:false, name:"cabinets（櫃體）", err:e, url:CABINETS_CSV });
     }
 
-    // 2) 抽屜
     try{
       drawerRows = await loadSimpleTab(DRAWERS_CSV);
       results.push({ ok:true, name:"drawers（抽屜）", count:drawerRows.length, url:DRAWERS_CSV });
@@ -1186,7 +1278,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       results.push({ ok:false, name:"drawers（抽屜）", err:e, url:DRAWERS_CSV });
     }
 
-    // 3) 板材
     try{
       boardRows = await loadSimpleTab(BOARDS_CSV);
       results.push({ ok:true, name:"boards（板材）", count:boardRows.length, url:BOARDS_CSV });
@@ -1194,7 +1285,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       results.push({ ok:false, name:"boards（板材）", err:e, url:BOARDS_CSV });
     }
 
-    // 4) 五金/加工
     try{
       hardwareRows = await loadSimpleTab(HARDWARES_CSV);
       results.push({ ok:true, name:"hardwares（五金/加工）", count:hardwareRows.length, url:HARDWARES_CSV });
@@ -1232,7 +1322,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       alert(lines.join("\n"));
     }
 
-    // render 配件 rows
     renderBoardLines();
     renderHwLines();
 
@@ -1253,9 +1342,11 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 
     if(sendBtnEl) sendBtnEl.onclick = sendToMake;
 
+    // 如果 userId 已取到，按鈕會在 initLiff 內自動解鎖；否則保持鎖定
   }catch(err){
     console.error(err);
     alert("系統初始化失敗，請稍後重試或檢查網路連線。");
+    lockSendBtn("初始化失敗");
   }
 });
 </script>
