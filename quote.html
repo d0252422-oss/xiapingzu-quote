@@ -45,7 +45,51 @@
 </head>
 
 <body class="min-h-screen bg-[#0f172a]">
-<div class="max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
+
+<!-- ✅ 密碼遮罩（Password Gate） -->
+<div id="authGate" class="fixed inset-0 z-[9999] bg-[#0f172a]">
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-md bg-white rounded-2xl elevated overflow-hidden">
+      <div class="relative">
+        <div class="wood-bg h-20 w-full"></div>
+        <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#022c22] via-[#064e3b]/95 to-transparent"></div>
+        <div class="absolute inset-0 flex flex-col justify-end px-4 pb-4">
+          <p class="text-xs text-amber-100/90 tracking-[0.25em] mb-1">ACCESS REQUIRED</p>
+          <h2 class="text-2xl font-semibold text-white">拚拼組 <span class="text-emerald-200 text-lg">系統櫃報價</span></h2>
+          <p class="text-[11px] text-emerald-100/80 mt-1">請先輸入密碼後才可進入報價介面</p>
+        </div>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <label class="block text-xs text-slate-500">密碼</label>
+        <input id="passInput" type="password" inputmode="text" autocomplete="current-password"
+          class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-emerald-300"
+          placeholder="請輸入密碼" />
+
+        <div class="flex items-center justify-between gap-3">
+          <label class="flex items-center gap-2 text-xs text-slate-600 select-none">
+            <input id="rememberMe" type="checkbox" class="h-4 w-4">
+            記住此裝置
+          </label>
+
+          <button id="passBtn" type="button"
+            class="bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-md active:scale-95">
+            進入
+          </button>
+        </div>
+
+        <p id="passMsg" class="text-[11px] text-red-600 hidden">密碼錯誤，請再試一次。</p>
+
+        <div class="text-[11px] text-slate-500 leading-relaxed pt-2 border-t">
+          <p>提醒：此為「前端密碼門」(A 方案)，用途是避免一般路人誤入；若你需要更高安全性（密碼不落在前端），建議改用 B 方案（由 Make/後端驗證）。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ 主程式容器：未通過密碼前先隱藏 -->
+<div id="appRoot" class="hidden max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
 
   <header class="relative overflow-hidden">
     <div class="wood-bg h-20 w-full"></div>
@@ -146,8 +190,6 @@
         </div>
         <div>
           <label class="block text-xs text-slate-500 mb-1">計價說明</label>
-
-          <!-- ✅ 已替換成你要的新文字 -->
           <p class="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-[6px] leading-relaxed">
             此報價為參考，實際價格還是以實體報價結果為主
           </p>
@@ -282,6 +324,48 @@
 </div>
 
 <script>
+/** =========================
+ *  ✅ A 方案：前端密碼門設定
+ *  =========================
+ *  只要改這行密碼即可：
+ */
+const APP_PASSWORD = "pinpin2026";  // ← 改成你要的密碼
+
+const AUTH_SESSION_KEY = "pinpin_auth_ok_session";
+const AUTH_LOCAL_KEY   = "pinpin_auth_ok_local";
+
+function isAuthed(){
+  try{
+    if(localStorage.getItem(AUTH_LOCAL_KEY) === "1") return true;
+    if(sessionStorage.getItem(AUTH_SESSION_KEY) === "1") return true;
+  }catch(e){}
+  return false;
+}
+function setAuthed(remember){
+  try{
+    if(remember) localStorage.setItem(AUTH_LOCAL_KEY, "1");
+    else sessionStorage.setItem(AUTH_SESSION_KEY, "1");
+  }catch(e){}
+}
+function showGate(){
+  const gate = document.getElementById("authGate");
+  const app  = document.getElementById("appRoot");
+  if(gate) gate.classList.remove("hidden");
+  if(app)  app.classList.add("hidden");
+  const msg = document.getElementById("passMsg");
+  if(msg) msg.classList.add("hidden");
+}
+function hideGate(){
+  const gate = document.getElementById("authGate");
+  const app  = document.getElementById("appRoot");
+  if(gate) gate.classList.add("hidden");
+  if(app)  app.classList.remove("hidden");
+}
+
+/** =========================
+ *  你原本的主程式（保持原邏輯）
+ *  只改成：通過密碼後才 bootApp()
+ *  ========================= */
 const CABINETS_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
 
@@ -975,7 +1059,7 @@ function buildPayload(){
 
   return {
     userId: uid,
-    toUserId: uid,   /* ★新增：讓 Make 端直接用 toUserId */
+    toUserId: uid,
     customerName: document.getElementById("customerName").value.trim(),
     customerPhone: document.getElementById("customerPhone").value.trim(),
     subtotal,
@@ -1060,17 +1144,25 @@ async function sendToMake(){
   }
 }
 
-document.addEventListener("DOMContentLoaded", async ()=>{
+/** ✅ 將你原本 DOMContentLoaded 的初始化流程包成 bootApp()，通過密碼才執行 */
+let __booted = false;
+async function bootApp(){
+  if(__booted) return;
+  __booted = true;
+
+  // 字體切換
   initScale();
   const btn = document.getElementById("fontToggleBtn");
   if(btn) btn.onclick = toggleScale;
 
+  // 送出按鈕先鎖住，等拿到 userId 再解鎖
   const sendBtnEl = document.getElementById("sendBtn");
   if(sendBtnEl){
     sendBtnEl.disabled = true;
     sendBtnEl.classList.add("opacity-60","pointer-events-none");
   }
 
+  // 預設先給一列
   addBoardLine();
   addHwLine();
 
@@ -1164,6 +1256,49 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   }catch(err){
     console.error(err);
     alert("系統初始化失敗，請稍後重試或檢查網路連線。");
+  }
+}
+
+/** ✅ 首次載入：先啟動密碼門，再決定是否 bootApp() */
+document.addEventListener("DOMContentLoaded", ()=>{
+  // 字體倍率先初始化（不涉及資料載入，允許先做）
+  initScale();
+  const fontBtn = document.getElementById("fontToggleBtn");
+  if(fontBtn) fontBtn.onclick = toggleScale;
+
+  const passInput = document.getElementById("passInput");
+  const passBtn   = document.getElementById("passBtn");
+  const passMsg   = document.getElementById("passMsg");
+  const remember  = document.getElementById("rememberMe");
+
+  function tryPass(){
+    const v = (passInput?.value || "").trim();
+    if(v && v === APP_PASSWORD){
+      setAuthed(!!remember?.checked);
+      hideGate();
+      bootApp(); // ✅ 通過密碼後才載入 LIFF/CSV
+      return;
+    }
+    if(passMsg) passMsg.classList.remove("hidden");
+    if(passInput){
+      passInput.value = "";
+      passInput.focus();
+    }
+  }
+
+  if(isAuthed()){
+    hideGate();
+    bootApp();
+  }else{
+    showGate();
+    if(passInput) passInput.focus();
+  }
+
+  if(passBtn) passBtn.onclick = tryPass;
+  if(passInput){
+    passInput.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter") tryPass();
+    });
   }
 });
 </script>
