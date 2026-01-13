@@ -78,6 +78,13 @@
           </button>
         </div>
 
+        <hr class="border-slate-200" />
+
+        <!-- ✅ 已改成你要的新文案 -->
+        <p class="text-[11px] text-slate-600 leading-relaxed">
+          請與我們聯絡取得使用報價程式之密碼進行使用。
+        </p>
+
         <p id="passMsg" class="text-[11px] text-red-600 hidden">密碼錯誤，請再試一次。</p>
       </div>
     </div>
@@ -321,7 +328,7 @@
 
 <script>
 /** =========================
- * ✅ A 方案：前端密碼門（強制：沒密碼不能看、不能操作、不能初始化）
+ * ✅ 前端密碼門（強制：沒密碼不能看、不能操作、不能初始化）
  * ========================= */
 const APP_PASSWORD = "pinpin2026"; // ← 改成你要的密碼
 const AUTH_SESSION_KEY = "pinpin_auth_ok_session";
@@ -351,7 +358,7 @@ function unlockAppControls(){
   if(!app) return;
   app.querySelectorAll("input, select, textarea, button").forEach(el=>{ el.disabled = false; });
 
-  // 仍保留你原本設計：sendBtn 等拿到 userId 才能真的解鎖
+  // sendBtn 仍保留：拿到 userId 才真正可送出
   const sendBtnEl = document.getElementById("sendBtn");
   if(sendBtnEl){
     sendBtnEl.disabled = true;
@@ -377,7 +384,7 @@ function enterApp(){
 }
 
 /** =========================
- * ✅ 你的原本報價程式（原樣保留）
+ * ✅ 你的原本報價程式
  * ========================= */
 const CABINETS_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
@@ -910,8 +917,6 @@ function updateMatchAndPreview(){
     `每組櫃數 ${countPerSet}（寬${(best.widthMm/10).toFixed(0)}cm）× 組數 ${qtySet} = ${countTotal} 櫃｜$${best.price.toLocaleString()} × ${countTotal} = $${amount.toLocaleString()}`;
 }
 
-function calcBoardsTotalSafe(lines){ return (lines||[]).reduce((s,x)=>s+(x.amount||0),0); }
-
 function renderCart(){
   if(!cartItems.length){
     quoteList.innerHTML = `<p class="text-xs text-slate-400">尚未加入任何項目。</p>`;
@@ -1120,11 +1125,10 @@ async function sendToMake(){
 /** ✅ 只允許「通過密碼後」才初始化一次 */
 let __booted = false;
 async function bootApp(){
-  if(!isAuthed()) return;     // ✅ 保險：沒授權就不初始化
+  if(!isAuthed()) return;
   if(__booted) return;
   __booted = true;
 
-  // 字體切換
   initScale();
   const fontBtn = document.getElementById("fontToggleBtn");
   if(fontBtn) fontBtn.onclick = toggleScale;
@@ -1135,7 +1139,6 @@ async function bootApp(){
     sendBtnEl.classList.add("opacity-60","pointer-events-none");
   }
 
-  // 預設先給一列
   addBoardLine();
   addHwLine();
 
@@ -1208,7 +1211,6 @@ async function bootApp(){
     document.getElementById("addBoardRowBtn").onclick = addBoardLine;
     document.getElementById("addHwRowBtn").onclick = addHwLine;
 
-    // 加入購物車
     document.getElementById("addItemBtn").onclick = () => {
       const name = document.getElementById("cabinetLabel").value.trim() || "櫃體";
       if(!currentMatch || !currentComputed){
@@ -1281,10 +1283,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
   }
 
-  // 預設強制鎖住並顯示密碼門
   showGate();
 
-  // 若已記住才直接進入
   if(isAuthed()){
     enterApp();
     bootApp();
