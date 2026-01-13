@@ -46,7 +46,7 @@
 
 <body class="min-h-screen bg-[#0f172a]">
 
-<!-- ✅ 密碼遮罩（Password Gate） -->
+<!-- ✅ 密碼遮罩（必須先輸入密碼才可進入與操作） -->
 <div id="authGate" class="fixed inset-0 z-[9999] bg-[#0f172a]">
   <div class="min-h-screen flex items-center justify-center px-4">
     <div class="w-full max-w-md bg-white rounded-2xl elevated overflow-hidden">
@@ -79,17 +79,13 @@
         </div>
 
         <p id="passMsg" class="text-[11px] text-red-600 hidden">密碼錯誤，請再試一次。</p>
-
-        <div class="text-[11px] text-slate-500 leading-relaxed pt-2 border-t">
-          <p>提醒：此為「前端密碼門」(A 方案)，用途是避免一般路人誤入；若你需要更高安全性（密碼不落在前端），建議改用 B 方案（由 Make/後端驗證）。</p>
-        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ✅ 主程式容器：未通過密碼前先隱藏 -->
-<div id="appRoot" class="hidden max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
+<!-- ✅ 主程式容器：未通過密碼前「完全不顯示」 -->
+<div id="appRoot" style="display:none" class="max-w-md mx-auto min-h-screen flex flex-col bg-slate-100">
 
   <header class="relative overflow-hidden">
     <div class="wood-bg h-20 w-full"></div>
@@ -325,12 +321,9 @@
 
 <script>
 /** =========================
- *  ✅ A 方案：前端密碼門設定
- *  =========================
- *  只要改這行密碼即可：
- */
-const APP_PASSWORD = "pinpin2026";  // ← 改成你要的密碼
-
+ * ✅ A 方案：前端密碼門（強制：沒密碼不能看、不能操作、不能初始化）
+ * ========================= */
+const APP_PASSWORD = "pinpin2026"; // ← 改成你要的密碼
 const AUTH_SESSION_KEY = "pinpin_auth_ok_session";
 const AUTH_LOCAL_KEY   = "pinpin_auth_ok_local";
 
@@ -347,25 +340,45 @@ function setAuthed(remember){
     else sessionStorage.setItem(AUTH_SESSION_KEY, "1");
   }catch(e){}
 }
+
+function lockAppControls(){
+  const app = document.getElementById("appRoot");
+  if(!app) return;
+  app.querySelectorAll("input, select, textarea, button").forEach(el=>{ el.disabled = true; });
+}
+function unlockAppControls(){
+  const app = document.getElementById("appRoot");
+  if(!app) return;
+  app.querySelectorAll("input, select, textarea, button").forEach(el=>{ el.disabled = false; });
+
+  // 仍保留你原本設計：sendBtn 等拿到 userId 才能真的解鎖
+  const sendBtnEl = document.getElementById("sendBtn");
+  if(sendBtnEl){
+    sendBtnEl.disabled = true;
+    sendBtnEl.classList.add("opacity-60","pointer-events-none");
+  }
+}
+
 function showGate(){
   const gate = document.getElementById("authGate");
   const app  = document.getElementById("appRoot");
-  if(gate) gate.classList.remove("hidden");
-  if(app)  app.classList.add("hidden");
+  if(gate) gate.style.display = "block";
+  if(app)  app.style.display = "none";
+  lockAppControls();
   const msg = document.getElementById("passMsg");
   if(msg) msg.classList.add("hidden");
 }
-function hideGate(){
+function enterApp(){
   const gate = document.getElementById("authGate");
   const app  = document.getElementById("appRoot");
-  if(gate) gate.classList.add("hidden");
-  if(app)  app.classList.remove("hidden");
+  if(gate) gate.style.display = "none";
+  if(app)  app.style.display = "";
+  unlockAppControls();
 }
 
 /** =========================
- *  你原本的主程式（保持原邏輯）
- *  只改成：通過密碼後才 bootApp()
- *  ========================= */
+ * ✅ 你的原本報價程式（原樣保留）
+ * ========================= */
 const CABINETS_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqtS5fA_DZBhjus9oMHTvFx7m_D7cp2ktfUQFGM9kAzJGZ7urNJWTXNpxRx2DCQdS36-Ov8Wiw3SoN/pub?gid=0&single=true&output=csv";
 
@@ -897,47 +910,7 @@ function updateMatchAndPreview(){
     `每組櫃數 ${countPerSet}（寬${(best.widthMm/10).toFixed(0)}cm）× 組數 ${qtySet} = ${countTotal} 櫃｜$${best.price.toLocaleString()} × ${countTotal} = $${amount.toLocaleString()}`;
 }
 
-document.getElementById("addItemBtn").onclick = () => {
-  const name = document.getElementById("cabinetLabel").value.trim() || "櫃體";
-  if(!currentMatch || !currentComputed){
-    alert("請先輸入完整高/深/寬，並確認已成功匹配單價。");
-    return;
-  }
-
-  const dr = calcDrawer();
-  const bLines = boardLines.map(l => calcBoardLine(l)).filter(x => x.code);
-  const hLines = hwLines.map(l => calcHwLine(l)).filter(x => x.code);
-
-  const boardsTotal = bLines.reduce((s,x)=>s+(x.amount||0),0);
-  const hwTotal = hLines.reduce((s,x)=>s+(x.amount||0),0);
-  const addonsTotal = (dr.amount||0) + boardsTotal + hwTotal;
-
-  const baseAmount = currentComputed.amount;
-  const itemTotal = baseAmount + addonsTotal;
-
-  const it = {
-    label: name,
-    kind: currentComputed.kind,
-    input: { heightCm: currentComputed.Hcm, depthCm: currentComputed.Dcm, widthCm: currentComputed.Wcm, qtySet: currentComputed.qtySet },
-    matched: {
-      code: currentMatch.code,
-      name: currentMatch.name,
-      heightMm: currentMatch.heightMm,
-      depthMm: currentMatch.depthMm,
-      widthMm: currentMatch.widthMm,
-      unitPrice: currentMatch.price
-    },
-    countPerSet: currentComputed.countPerSet,
-    countTotal: currentComputed.countTotal,
-    baseAmount,
-    addons: { drawer: dr.code ? dr : null, boards: bLines, hardwares: hLines, boardsTotal, hwTotal, addonsTotal },
-    amount: itemTotal
-  };
-
-  cartItems.push(it);
-  renderCart();
-  calcTotal();
-};
+function calcBoardsTotalSafe(lines){ return (lines||[]).reduce((s,x)=>s+(x.amount||0),0); }
 
 function renderCart(){
   if(!cartItems.length){
@@ -1144,18 +1117,18 @@ async function sendToMake(){
   }
 }
 
-/** ✅ 將你原本 DOMContentLoaded 的初始化流程包成 bootApp()，通過密碼才執行 */
+/** ✅ 只允許「通過密碼後」才初始化一次 */
 let __booted = false;
 async function bootApp(){
+  if(!isAuthed()) return;     // ✅ 保險：沒授權就不初始化
   if(__booted) return;
   __booted = true;
 
   // 字體切換
   initScale();
-  const btn = document.getElementById("fontToggleBtn");
-  if(btn) btn.onclick = toggleScale;
+  const fontBtn = document.getElementById("fontToggleBtn");
+  if(fontBtn) fontBtn.onclick = toggleScale;
 
-  // 送出按鈕先鎖住，等拿到 userId 再解鎖
   const sendBtnEl = document.getElementById("sendBtn");
   if(sendBtnEl){
     sendBtnEl.disabled = true;
@@ -1176,33 +1149,17 @@ async function bootApp(){
 
     const results = [];
 
-    try{
-      await loadCabinetSheet();
-      results.push({ ok:true, name:"cabinets（櫃體）", count:cabinetRows.length, url:CABINETS_CSV });
-    }catch(e){
-      results.push({ ok:false, name:"cabinets（櫃體）", err:e, url:CABINETS_CSV });
-    }
+    try{ await loadCabinetSheet(); results.push({ ok:true, name:"cabinets（櫃體）", count:cabinetRows.length, url:CABINETS_CSV }); }
+    catch(e){ results.push({ ok:false, name:"cabinets（櫃體）", err:e, url:CABINETS_CSV }); }
 
-    try{
-      drawerRows = await loadSimpleTab(DRAWERS_CSV);
-      results.push({ ok:true, name:"drawers（抽屜）", count:drawerRows.length, url:DRAWERS_CSV });
-    }catch(e){
-      results.push({ ok:false, name:"drawers（抽屜）", err:e, url:DRAWERS_CSV });
-    }
+    try{ drawerRows = await loadSimpleTab(DRAWERS_CSV); results.push({ ok:true, name:"drawers（抽屜）", count:drawerRows.length, url:DRAWERS_CSV }); }
+    catch(e){ results.push({ ok:false, name:"drawers（抽屜）", err:e, url:DRAWERS_CSV }); }
 
-    try{
-      boardRows = await loadSimpleTab(BOARDS_CSV);
-      results.push({ ok:true, name:"boards（板材）", count:boardRows.length, url:BOARDS_CSV });
-    }catch(e){
-      results.push({ ok:false, name:"boards（板材）", err:e, url:BOARDS_CSV });
-    }
+    try{ boardRows = await loadSimpleTab(BOARDS_CSV); results.push({ ok:true, name:"boards（板材）", count:boardRows.length, url:BOARDS_CSV }); }
+    catch(e){ results.push({ ok:false, name:"boards（板材）", err:e, url:BOARDS_CSV }); }
 
-    try{
-      hardwareRows = await loadSimpleTab(HARDWARES_CSV);
-      results.push({ ok:true, name:"hardwares（五金/加工）", count:hardwareRows.length, url:HARDWARES_CSV });
-    }catch(e){
-      results.push({ ok:false, name:"hardwares（五金/加工）", err:e, url:HARDWARES_CSV });
-    }
+    try{ hardwareRows = await loadSimpleTab(HARDWARES_CSV); results.push({ ok:true, name:"hardwares（五金/加工）", count:hardwareRows.length, url:HARDWARES_CSV }); }
+    catch(e){ results.push({ ok:false, name:"hardwares（五金/加工）", err:e, url:HARDWARES_CSV }); }
 
     const okAll = results.every(x=>x.ok);
     const okText = results.filter(x=>x.ok).map(x=>`${x.name}：${x.count}筆`).join("｜") || "—";
@@ -1251,6 +1208,49 @@ async function bootApp(){
     document.getElementById("addBoardRowBtn").onclick = addBoardLine;
     document.getElementById("addHwRowBtn").onclick = addHwLine;
 
+    // 加入購物車
+    document.getElementById("addItemBtn").onclick = () => {
+      const name = document.getElementById("cabinetLabel").value.trim() || "櫃體";
+      if(!currentMatch || !currentComputed){
+        alert("請先輸入完整高/深/寬，並確認已成功匹配單價。");
+        return;
+      }
+
+      const dr = calcDrawer();
+      const bLines = boardLines.map(l => calcBoardLine(l)).filter(x => x.code);
+      const hLines = hwLines.map(l => calcHwLine(l)).filter(x => x.code);
+
+      const boardsTotal = bLines.reduce((s,x)=>s+(x.amount||0),0);
+      const hwTotal = hLines.reduce((s,x)=>s+(x.amount||0),0);
+      const addonsTotal = (dr.amount||0) + boardsTotal + hwTotal;
+
+      const baseAmount = currentComputed.amount;
+      const itemTotal = baseAmount + addonsTotal;
+
+      const it = {
+        label: name,
+        kind: currentComputed.kind,
+        input: { heightCm: currentComputed.Hcm, depthCm: currentComputed.Dcm, widthCm: currentComputed.Wcm, qtySet: currentComputed.qtySet },
+        matched: {
+          code: currentMatch.code,
+          name: currentMatch.name,
+          heightMm: currentMatch.heightMm,
+          depthMm: currentMatch.depthMm,
+          widthMm: currentMatch.widthMm,
+          unitPrice: currentMatch.price
+        },
+        countPerSet: currentComputed.countPerSet,
+        countTotal: currentComputed.countTotal,
+        baseAmount,
+        addons: { drawer: dr.code ? dr : null, boards: bLines, hardwares: hLines, boardsTotal, hwTotal, addonsTotal },
+        amount: itemTotal
+      };
+
+      cartItems.push(it);
+      renderCart();
+      calcTotal();
+    };
+
     if(sendBtnEl) sendBtnEl.onclick = sendToMake;
 
   }catch(err){
@@ -1259,13 +1259,8 @@ async function bootApp(){
   }
 }
 
-/** ✅ 首次載入：先啟動密碼門，再決定是否 bootApp() */
+/** ✅ 唯一入口：先密碼門，再決定是否 bootApp() */
 document.addEventListener("DOMContentLoaded", ()=>{
-  // 字體倍率先初始化（不涉及資料載入，允許先做）
-  initScale();
-  const fontBtn = document.getElementById("fontToggleBtn");
-  if(fontBtn) fontBtn.onclick = toggleScale;
-
   const passInput = document.getElementById("passInput");
   const passBtn   = document.getElementById("passBtn");
   const passMsg   = document.getElementById("passMsg");
@@ -1273,10 +1268,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   function tryPass(){
     const v = (passInput?.value || "").trim();
-    if(v && v === APP_PASSWORD){
+    if(v === APP_PASSWORD){
       setAuthed(!!remember?.checked);
-      hideGate();
-      bootApp(); // ✅ 通過密碼後才載入 LIFF/CSV
+      enterApp();
+      bootApp();
       return;
     }
     if(passMsg) passMsg.classList.remove("hidden");
@@ -1286,11 +1281,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
   }
 
+  // 預設強制鎖住並顯示密碼門
+  showGate();
+
+  // 若已記住才直接進入
   if(isAuthed()){
-    hideGate();
+    enterApp();
     bootApp();
   }else{
-    showGate();
     if(passInput) passInput.focus();
   }
 
